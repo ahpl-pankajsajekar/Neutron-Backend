@@ -9,4 +9,5 @@ urlpatterns = [
     path('empanelment/get/', views.EmpanelmentDetailAPIView.as_view()),
     path('empanelment/update/', views.EmpanelmentUpdateAPIView.as_view()),
     path('empanelment/delete/', views.EmpanelmentDeleteAPIView.as_view()),
+    path('selfemp/add/', views.FileUploadView.as_view()),
 ]

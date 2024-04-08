@@ -1,17 +1,22 @@
+from pyclbr import Class
+from urllib import request
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 import pymongo
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework import generics
 
 from bson import ObjectId, json_util
 import json
 import datetime
 import re
+import requests  # type: ignore
+import base64
 
-from providerApp.serializers import DCSerializer, EmpanelmentSerializer
-from .models import neutron_collection, person_collection
+from providerApp.serializers import DCSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer
+from .models import neutron_collection, person_collection, selfEmpanelment_collection
 
 class home(APIView):
     def get(self, request, *args, **kwargs):
@@ -281,10 +286,12 @@ class EmpanelmentDetailAPIView(APIView):
             if empanelmentID_query is None:
                 return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-            document = person_collection.find_one({'_id': ObjectId(empanelmentID_query) })
+            document = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query) })
+
             if document:
                 response_data = {
                     "status": "Successful",
+                    # "data": serializer.data,
                     "data": json.loads(json_util.dumps(document)),
                     "message": "Document Found Successfully",
                     "serviceName": "EmpanelmentDetails_Service",
@@ -298,6 +305,7 @@ class EmpanelmentDetailAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+
 class EmpanelmentUpdateAPIView(APIView):
     def put(self, request):
         data = request.data
@@ -367,3 +375,165 @@ class EmpanelmentDeleteAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
  
+        
+# Self Emapanelment
+class SelfEmpanelmentCreateAPIView(APIView):
+    
+    def post(self, request):
+        try:
+            # Get data from request
+            serializer = SelfEmpanelmentSerializer(data=request.data)
+            if serializer.is_valid():
+                empanelment_data = serializer.data
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+            # Create data in MongoDB
+            result = selfEmpanelment_collection.insert_one(request.data)
+            response_data = {
+                    "status": "Successful",
+                    "document_id": str(result.inserted_id),
+                    "message": "Document created Successfully",
+                    "serviceName": "SelfEmpanelmentCreate_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                    }
+            return Response(response_data)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+class TicketUpdateAPIView(APIView):
+    def put(self, request):
+        data = request.data
+        try:
+            ticketId_query = request.query_params.get('ticket_id')
+            if ticketId_query is None:
+                return Response({"error": "Ticket not Found"}, status=status.HTTP_400_BAD_REQUEST)
+            result = person_collection.replace_one({'_id': ObjectId(ticketId_query)}, data)
+            if result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "message": "Ticket Full Update Successfully",
+                        "serviceName": "TicketFullUpdate_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found or not modified'}, status=404)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def patch(self, request):
+        data = request.data
+        try:
+            ticketId_query = request.query_params.get('ticket_id')
+            if ticketId_query is None:
+                return Response({"error": "Ticket not Found"}, status=status.HTTP_400_BAD_REQUEST)
+            result = person_collection.update_one({'_id': ObjectId(ticketId_query)}, {'$set': data})
+            if result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "message": "Ticket Partial Update Successfully",
+                        "serviceName": "TicketPartialUpdate_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found or not modified'}, status=404)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+# basic authorization 
+freshdesk_username = 'p8StXeOUFSoTHBrUyco'
+freshdesk_password = 'X'
+freshdesk_url = 'https://alineahealthcare.freshdesk.com/'
+
+# Concatenate username and password with a colon
+auth_string = f'{freshdesk_username}:{freshdesk_password}'
+# Encode the auth string to base64
+auth_encoded = base64.b64encode(auth_string.encode()).decode()
+
+# Update Freshdesk Ticket update
+def ticketStatusUpdate(ticket_id):
+    try:
+        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
+        # update status Resolved 4
+        body_data = {
+            "status": 4,
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {auth_encoded}'
+        }
+        response = requests.put(url, json=body_data, headers=headers)
+        res = response.json()
+        print("----res-----",)
+        if response.status_code == 200:
+            print("Ticket updated successfully!")
+            response_data = {
+                "status":  "Successful",
+                "message":  "Ticket updated successfully!",
+                "serviceName": "ticketStatusUpdate_Function",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": 200,
+            }
+            print(response_data)
+        else:
+            print("Failed to update ticket. Status code:", response.status_code)
+            response_data = {
+                "status":  res['code'],
+                "message":  res['message'],
+                "serviceName": "ticketStatusUpdate_Function",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": response.status_code,
+            }
+            print("Response : ", response_data)
+        # return Response(response_data)
+    except requests.exceptions.RequestException as e:
+        print("Error making request:", e)
+        response_data = {
+            "status": "Failed",
+            "message": e,
+            "serviceName": "ticketStatusUpdate_Function",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+        }
+        # return Response(response_data)
+# ticketStatusUpdate(558354)
+
+
+# Self Empanelment list view
+class SelfEmpanelmentList(generics.ListCreateAPIView):
+    serializer_class = SelfEmpanelmentSerializer
+    permission_classes = []
+    
+    def get_queryset(self):
+        return selfEmpanelment_collection.find()
+    
+
+class FileUploadView(APIView):
+    def post(self, request, format=None):
+        file = request.data['pan_image']
+        dcname = request.data.get('dcname')
+        pan_number = request.data.get('pan_number')
+        text_field = request.data.get('text_field')
+        
+        # Store file and additional data in MongoDB
+        data = {
+            'dcname': dcname,
+            'pan_number': pan_number,
+            'text_field': text_field,
+            'pan_image': file.read()
+        }
+        selfEmpanelment_collection.insert_one(data)
+        return Response(status=status.HTTP_201_CREATED)
+    
+

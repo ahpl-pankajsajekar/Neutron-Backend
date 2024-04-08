@@ -6,3 +6,5 @@ from db_connection import db
 
 neutron_collection = db['Neutron']
 person_collection = db['Person']
+selfEmpanelment_collection = db['SelfEmpanelment']
+

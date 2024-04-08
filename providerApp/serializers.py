@@ -8,3 +8,7 @@ class DCSerializer(serializers.Serializer):
 class EmpanelmentSerializer(serializers.Serializer):
     FirstName = serializers.CharField(max_length=150)
     LastName = serializers.CharField(max_length=150)
+    
+class SelfEmpanelmentSerializer(serializers.Serializer):
+    DCName = serializers.CharField(max_length=180)
+    pan_image = serializers.ImageField()
