@@ -39,6 +39,12 @@ INSTALLED_APPS = [
     'providerApp',
     'rest_framework',
     'corsheaders',
+    
+    # Jwt token Authentication
+    'rest_framework_simplejwt',
+    
+    # Forgot passwd
+    'django_rest_passwordreset',
 ]
 
 MIDDLEWARE = [
@@ -138,8 +144,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 REST_FRAMEWORK = {
+    
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
+    ],
+    # JWT Token allow Authentication
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication'
+    ),
+    
 }

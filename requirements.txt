@@ -4,7 +4,9 @@ charset-normalizer==3.3.2
 Django==5.0.3
 django-cors-headers==4.3.1
 django-filter==24.1
+django-rest-passwordreset==1.4.0
 djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
 dnspython==2.6.1
 et-xmlfile==1.1.0
 fsspec==2024.3.1
@@ -12,6 +14,7 @@ idna==3.6
 numpy==1.26.4
 openpyxl==3.1.2
 pandas==2.2.1
+PyJWT==2.8.0
 pymongo==4.6.2
 python-dateutil==2.9.0.post0
 pytz==2024.1

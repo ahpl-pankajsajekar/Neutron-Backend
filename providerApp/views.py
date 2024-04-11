@@ -15,7 +15,7 @@ import re
 import requests  # type: ignore
 import base64
 
-from providerApp.serializers import DCSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer
+from providerApp.serializers import DCSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer
 from .models import neutron_collection, person_collection, selfEmpanelment_collection
 
 class home(APIView):
@@ -467,7 +467,7 @@ def ticketStatusUpdate(ticket_id):
         url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
         # update status Resolved 4
         body_data = {
-            "status": 4,
+            "status": 2,
         }
         headers = {
             'Content-Type': 'application/json',
@@ -485,7 +485,6 @@ def ticketStatusUpdate(ticket_id):
                 "timeStamp": datetime.datetime.now().isoformat(),
                 "code": 200,
             }
-            print(response_data)
         else:
             print("Failed to update ticket. Status code:", response.status_code)
             response_data = {
@@ -495,7 +494,6 @@ def ticketStatusUpdate(ticket_id):
                 "timeStamp": datetime.datetime.now().isoformat(),
                 "code": response.status_code,
             }
-            print("Response : ", response_data)
         # return Response(response_data)
     except requests.exceptions.RequestException as e:
         print("Error making request:", e)
@@ -507,7 +505,9 @@ def ticketStatusUpdate(ticket_id):
             "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         }
         # return Response(response_data)
-# ticketStatusUpdate(558354)
+    print(response_data)
+    return(response_data)
+# ticketStatusUpdate(569752)
 
 
 # Self Empanelment list view
@@ -536,4 +536,67 @@ class FileUploadView(APIView):
         selfEmpanelment_collection.insert_one(data)
         return Response(status=status.HTTP_201_CREATED)
     
+# SelfEmpanelment
+class SelfEmpanelmentCreateAPIView(APIView):
+    def post(self, request,id=None, *args, **kwargs):
+        ticketId_from_url = id
+        if ticketId_from_url == None:
+            return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Get data from request
+            serializer = EmpanelmentSerializer(data=request.data)
+            if serializer.is_valid():
+                dc_data = serializer.data
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+            # Create data in MongoDB
+            result = person_collection.insert_one(request.data)
+            # change status in freshdesk
+            ticketStatusUpdate(ticketId_from_url)
+            response_data = {
+                    "status": "Successful",
+                    "document_id": str(result.inserted_id),
+                    "message": "Self Empanelment document created Successfully",
+                    "serviceName": "SelfEmpanelmentCreate_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                    }
+            return Response(response_data)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# Dc Chanage Status 
+class DCStatusChangeAPIView(APIView):
+    def post(self, request):
+        data = request.data
+        try:
+            dcID_query = int(request.query_params.get('dc', None))
+            if dcID_query is None:
+                return Response({"error": "DC Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            # count no of documents return 404
+            dc_count = neutron_collection.count_documents({'DCID': dcID_query })
+            print(dc_count)
+            if dc_count == 0:
+                return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
+            document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': data})
+             # Check if the update was successful
+            if document.modified_count > 0:
+                response_data = {
+                    "status": "Successful",
+                    "data": {
+                        "matched_count": document.matched_count,
+                        "modified_count": document.modified_count
+                    },
+                    "message": "Document Update Successfully",
+                    "serviceName": "DCStatusChange_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_200_OK,
+                }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
