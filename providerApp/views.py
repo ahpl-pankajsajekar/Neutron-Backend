@@ -377,31 +377,31 @@ class EmpanelmentDeleteAPIView(APIView):
  
         
 # Self Emapanelment
-class SelfEmpanelmentCreateAPIView(APIView):
+# class SelfEmpanelmentCreateAPIView(APIView):
     
-    def post(self, request):
-        try:
-            # Get data from request
-            serializer = SelfEmpanelmentSerializer(data=request.data)
-            if serializer.is_valid():
-                empanelment_data = serializer.data
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def post(self, request):
+#         try:
+#             # Get data from request
+#             serializer = SelfEmpanelmentSerializer(data=request.data)
+#             if serializer.is_valid():
+#                 empanelment_data = serializer.data
+#             else:
+#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-            # Create data in MongoDB
-            result = selfEmpanelment_collection.insert_one(request.data)
-            response_data = {
-                    "status": "Successful",
-                    "document_id": str(result.inserted_id),
-                    "message": "Document created Successfully",
-                    "serviceName": "SelfEmpanelmentCreate_Service",
-                    "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_201_CREATED,
-                    }
-            return Response(response_data)
+#             # Create data in MongoDB
+#             result = selfEmpanelment_collection.insert_one(request.data)
+#             response_data = {
+#                     "status": "Successful",
+#                     "document_id": str(result.inserted_id),
+#                     "message": "Document created Successfully",
+#                     "serviceName": "SelfEmpanelmentCreate_Service",
+#                     "timeStamp": datetime.datetime.now().isoformat(),
+#                     "code": status.HTTP_201_CREATED,
+#                     }
+#             return Response(response_data)
             
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 class TicketUpdateAPIView(APIView):
@@ -544,14 +544,14 @@ class SelfEmpanelmentCreateAPIView(APIView):
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             # Get data from request
-            serializer = EmpanelmentSerializer(data=request.data)
+            serializer = SelfEmpanelmentSerializer(data=request.data)
             if serializer.is_valid():
                 dc_data = serializer.data
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
             # Create data in MongoDB
-            result = person_collection.insert_one(request.data)
+            result = selfEmpanelment_collection.insert_one(request.data)
             # change status in freshdesk
             ticketStatusUpdate(ticketId_from_url)
             response_data = {
