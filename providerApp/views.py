@@ -127,13 +127,13 @@ class SearchDCAPIView(APIView):
             for item in search_query_list:
                 if isinstance(item, int):
                     # For integer values, construct query conditions for numeric fields
-                    query_conditions.append({"$or": [{"DCID": item}, {"Pincode": item},  {"Mobile number 1": item} ]})
+                    query_conditions.append({"$or": [{"DCID": item}, {"Pincode": item} ]})
                 elif isinstance(item, str):
                     # For string values, construct query conditions for string fields
                     query_conditions.append({"$or": [
                         {"DC Name": {"$regex": item, "$options": "i"}},
-                        {"City": {"$regex": item, "$options": "i"}},
-                        {"State": {"$regex": item, "$options": "i"}},
+                        {"City":{"$regex": "^" + re.escape(item), "$options": "i"}},  # (like operator '^') item match should starting not
+                        {"State": {"$regex": "^" + re.escape(item), "$options": "i"}},
                         {"DC Registration No": {"$regex": item, "$options": "i"}},
                         {"Accreditation Type": {"$regex": item, "$options": "i"}},
                     ]})
@@ -143,7 +143,11 @@ class SearchDCAPIView(APIView):
                 # regex_transformations = [re.compile(f'^{re.escape(transform)}$', re.IGNORECASE) for transform in tests_required]
                 # test_details_condition = {"AvailableTest": {"$elemMatch": { "$all": regex_transformations}} }
                 # Add condition for testDetails field
-                test_details_condition = {"AvailableTestCode": { "$all": search_tests_inputstring}}
+                # test_details_condition = {"AvailableTestCode": { "$all": search_tests_inputstring}}  # now search like  eg. [ { "item_value": "100001", "item_label": "2 D Echocardiography" } ]
+                test_details_condition = {"AvailableTestCode": {
+                        "$all": [{"$elemMatch": {"item_value": val}} for val in search_tests_inputstring]
+                    }}
+                # test_details_condition = {'AvailableTestCode': {'$all': [{'$elemMatch': {'item_value': '100001'}}, {'$elemMatch': {'item_value': '100002'}}]}} and it return value. input comes in " search_tests_inputstring = ["100001", "100002"] "
                 query_conditions.append(test_details_condition)
 
             # Combine all conditions using the $and operator
@@ -467,7 +471,7 @@ def ticketStatusUpdate(ticket_id):
         url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
         # update status Resolved 4
         body_data = {
-            "status": 2,
+            "status": 4,
         }
         headers = {
             'Content-Type': 'application/json',
@@ -475,7 +479,6 @@ def ticketStatusUpdate(ticket_id):
         }
         response = requests.put(url, json=body_data, headers=headers)
         res = response.json()
-        print("----res-----",)
         if response.status_code == 200:
             print("Ticket updated successfully!")
             response_data = {
@@ -568,7 +571,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# Dc Chanage Status 
+# Dc Chanage Status Activate and deactivate, delist
 class DCStatusChangeAPIView(APIView):
     def post(self, request):
         data = request.data
