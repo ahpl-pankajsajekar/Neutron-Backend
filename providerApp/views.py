@@ -32,12 +32,13 @@ auth_string = f'{freshdesk_username}:{freshdesk_password}'
 auth_encoded = base64.b64encode(auth_string.encode()).decode()
 
 # Update Freshdesk Ticket update
-def ticketStatusUpdate(ticket_id):
+def ticketStatusUpdate(ticket_id, ticket_status_code):
     try:
         url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
-        # update status Resolved 4
+        # update status   
+        # 49 = submited to DC , 4 = Resolved
         body_data = {
-            "status": 4,
+            "status": ticket_status_code,
         }
         headers = {
             'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ def ticketStatusUpdate(ticket_id):
         # return Response(response_data)
     print(response_data)
     return(response_data)
-# ticketStatusUpdate(569752)
+# ticketStatusUpdate(584387, 49)
 
 
 class home(APIView):
@@ -319,6 +320,53 @@ class DCDetailAPIView(APIView):
         }
         return Response(serializer_data)
 
+# Update DC
+class DCUpdateAPIView(APIView):
+    def put(self, request):
+        data = request.data
+        try:
+            empanelmentID_query = request.query_params.get('id')
+            if empanelmentID_query is None:
+                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            result = neutron_collection.replace_one({'_id': ObjectId(empanelmentID_query)}, data)
+            if result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "message": "Document Full Update Successfully",
+                        "serviceName": "EmpanelmentUpdate_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found or not modified'}, status=404)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def patch(self, request):
+        data = request.data
+        try:
+            empanelmentID_query = request.query_params.get('id')
+            if empanelmentID_query is None:
+                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            result = neutron_collection.update_one({'_id': ObjectId(empanelmentID_query)}, {'$set': data})
+            if result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "message": "Document Partial Update Successfully",
+                        "serviceName": "EmpanelmentUpdate_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found or not modified'}, status=404)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # empanelment
 class EmpanelmentCreateAPIView(APIView):
     def post(self, request):
@@ -372,51 +420,6 @@ class EmpanelmentDetailAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
-class EmpanelmentUpdateAPIView(APIView):
-    def put(self, request):
-        data = request.data
-        try:
-            empanelmentID_query = request.query_params.get('id')
-            if empanelmentID_query is None:
-                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
-            result = person_collection.replace_one({'_id': ObjectId(empanelmentID_query)}, data)
-            if result.modified_count == 1:
-                response_data = {
-                        "status": "Successful",
-                        "message": "Document Full Update Successfully",
-                        "serviceName": "EmpanelmentUpdate_Service",
-                        "timeStamp": datetime.datetime.now().isoformat(),
-                        "code": status.HTTP_200_OK,
-                        }
-                return Response(response_data)
-            else:
-                return Response({'error': 'Document not found or not modified'}, status=404)
-        
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    def patch(self, request):
-        data = request.data
-        try:
-            empanelmentID_query = request.query_params.get('id')
-            if empanelmentID_query is None:
-                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
-            result = person_collection.update_one({'_id': ObjectId(empanelmentID_query)}, {'$set': data})
-            if result.modified_count == 1:
-                response_data = {
-                        "status": "Successful",
-                        "message": "Document Partial Update Successfully",
-                        "serviceName": "EmpanelmentUpdate_Service",
-                        "timeStamp": datetime.datetime.now().isoformat(),
-                        "code": status.HTTP_200_OK,
-                        }
-                return Response(response_data)
-            else:
-                return Response({'error': 'Document not found or not modified'}, status=404)
-        
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 class EmpanelmentDeleteAPIView(APIView):
     def delete(self, request):
         try:
@@ -441,95 +444,15 @@ class EmpanelmentDeleteAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
  
-        
-# Self Emapanelment
-# class SelfEmpanelmentCreateAPIView(APIView):
-    
-#     def post(self, request):
-#         try:
-#             # Get data from request
-#             serializer = SelfEmpanelmentSerializer(data=request.data)
-#             if serializer.is_valid():
-#                 empanelment_data = serializer.data
-#             else:
-#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-#             # Create data in MongoDB
-#             result = selfEmpanelment_collection.insert_one(request.data)
-#             response_data = {
-#                     "status": "Successful",
-#                     "document_id": str(result.inserted_id),
-#                     "message": "Document created Successfully",
-#                     "serviceName": "SelfEmpanelmentCreate_Service",
-#                     "timeStamp": datetime.datetime.now().isoformat(),
-#                     "code": status.HTTP_201_CREATED,
-#                     }
-#             return Response(response_data)
-            
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-
-class TicketUpdateAPIView(APIView):
-    def put(self, request):
-        data = request.data
-        try:
-            ticketId_query = request.query_params.get('ticket_id')
-            if ticketId_query is None:
-                return Response({"error": "Ticket not Found"}, status=status.HTTP_400_BAD_REQUEST)
-            result = person_collection.replace_one({'_id': ObjectId(ticketId_query)}, data)
-            if result.modified_count == 1:
-                response_data = {
-                        "status": "Successful",
-                        "message": "Ticket Full Update Successfully",
-                        "serviceName": "TicketFullUpdate_Service",
-                        "timeStamp": datetime.datetime.now().isoformat(),
-                        "code": status.HTTP_200_OK,
-                        }
-                return Response(response_data)
-            else:
-                return Response({'error': 'Document not found or not modified'}, status=404)
-        
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    def patch(self, request):
-        data = request.data
-        try:
-            ticketId_query = request.query_params.get('ticket_id')
-            if ticketId_query is None:
-                return Response({"error": "Ticket not Found"}, status=status.HTTP_400_BAD_REQUEST)
-            result = person_collection.update_one({'_id': ObjectId(ticketId_query)}, {'$set': data})
-            if result.modified_count == 1:
-                response_data = {
-                        "status": "Successful",
-                        "message": "Ticket Partial Update Successfully",
-                        "serviceName": "TicketPartialUpdate_Service",
-                        "timeStamp": datetime.datetime.now().isoformat(),
-                        "code": status.HTTP_200_OK,
-                        }
-                return Response(response_data)
-            else:
-                return Response({'error': 'Document not found or not modified'}, status=404)
-        
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# Self Empanelment list view
-# class SelfEmpanelmentList(generics.ListCreateAPIView):
-#     serializer_class = SelfEmpanelmentSerializer
-#     permission_classes = []
     
 class SelfEmpanelmentList(APIView):
     def get(self, request):
         cursor = selfEmpanelment_collection.find()
-        print(cursor)
         providerData = []
         for document in cursor:
-                # print(document)
                 # Filter specific fields here
                 filtered_data = {
+                    # "id": document["_id"],
                     "dcname": document["dcname"],
                     # "text_field": document["text_field"],
                     "pan_number": document["pan_number"],
@@ -541,7 +464,6 @@ class SelfEmpanelmentList(APIView):
         if providerData:
                 response_data = {
                     "status": "Successful",
-                    # "data": serializer.data,
                     "data": providerData,
                     "message": "Document Found Successfully",
                     "serviceName": "EmpanelmentDetails_Service",
@@ -551,6 +473,54 @@ class SelfEmpanelmentList(APIView):
                 return Response(response_data)
         else:
                 return Response({'error': 'Document not found'}, status=404)
+    
+
+class SelfEmpanelmentAPIView(APIView):
+    def get(self, request, formate=None):
+        dcID_query = int(request.query_params.get('dc', None))
+        if dcID_query is None:
+            return Response({"error": "DC Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
+         
+        # count no of documents return 404
+        dc_count = selfEmpanelment_collection.count_documents({'DCID': dcID_query })
+        if dc_count == 0:
+            return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
+        
+        dcDetail = selfEmpanelment_collection.find({'DCID': dcID_query })
+        dcDetailData = json.loads(json_util.dumps(dcDetail))
+        serializer_data = {
+            "status": "Success",
+            "data": dcDetailData,
+            "message": "DC Details Retrieved Successfully",
+            "serviceName": "SelfEmpanelment_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_200_OK,
+        }
+        return Response(serializer_data)
+
+class SelfEmpanelmentUpdateAPIView(APIView):
+    def patch(self, request):
+        data = request.data
+        try:
+            empanelmentID_query = request.query_params.get('id')
+            if empanelmentID_query is None:
+                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query)}, {'$set': data})
+            if result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "message": "Document Partial Update Successfully",
+                        "serviceName": "SelfEmpanelmentUpdate_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found or not modified'}, status=404)
+        
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     
 # testing
 class FileUploadView(APIView):
@@ -607,7 +577,8 @@ class SelfEmpanelmentCreateAPIView(APIView):
             # Create data in MongoDB
             result = selfEmpanelment_collection.insert_one(request.data)
             # change status in freshdesk
-            ticketStatusUpdate(ticketId_from_url)
+            # 49 = submited to DC
+            ticketStatusUpdate(ticketId_from_url, 49)
             response_data = {
                     "status": "Successful",
                     "document_id": str(result.inserted_id),
