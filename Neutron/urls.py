@@ -20,4 +20,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('providerApp.urls')),
     path('api/account/', include('Account.urls')),
+    # path('mongo_auth/', include('mongo_auth.urls')),
 ]

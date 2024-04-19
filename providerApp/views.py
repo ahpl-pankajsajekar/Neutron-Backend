@@ -18,6 +18,67 @@ import base64
 from providerApp.serializers import DCSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer
 from .models import neutron_collection, person_collection, selfEmpanelment_collection
 
+from rest_framework.permissions import IsAuthenticated
+
+
+# basic authorization 
+freshdesk_username = 'p8StXeOUFSoTHBrUyco'
+freshdesk_password = 'X'
+freshdesk_url = 'https://alineahealthcare.freshdesk.com/'
+
+# Concatenate username and password with a colon
+auth_string = f'{freshdesk_username}:{freshdesk_password}'
+# Encode the auth string to base64
+auth_encoded = base64.b64encode(auth_string.encode()).decode()
+
+# Update Freshdesk Ticket update
+def ticketStatusUpdate(ticket_id):
+    try:
+        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
+        # update status Resolved 4
+        body_data = {
+            "status": 4,
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {auth_encoded}'
+        }
+        response = requests.put(url, json=body_data, headers=headers)
+        res = response.json()
+        if response.status_code == 200:
+            print("Ticket updated successfully!")
+            response_data = {
+                "status":  "Successful",
+                "message":  "Ticket updated successfully!",
+                "serviceName": "ticketStatusUpdate_Function",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": 200,
+            }
+        else:
+            print("Failed to update ticket. Status code:", response.status_code)
+            response_data = {
+                "status":  res['code'],
+                "message":  res['message'],
+                "serviceName": "ticketStatusUpdate_Function",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": response.status_code,
+            }
+        # return Response(response_data)
+    except requests.exceptions.RequestException as e:
+        print("Error making request:", e)
+        response_data = {
+            "status": "Failed",
+            "message": e,
+            "serviceName": "ticketStatusUpdate_Function",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+        }
+        # return Response(response_data)
+    print(response_data)
+    return(response_data)
+# ticketStatusUpdate(569752)
+
+
 class home(APIView):
     def get(self, request, *args, **kwargs):
         # person_collection.create_index([("$**", "text")])
@@ -94,6 +155,8 @@ class ADD_DC_APIIntegrations(APIView):
 
 # Search in this fields q params [DCID, Pincode, DC Name, City] and t params [AvailableTest]. where that data matched that documents (records) will show
 class SearchDCAPIView(APIView):
+    # permission_classes = [IsAuthenticated]
+
     def post(self, request, format=None):
         try:
             data = json.loads(request.body) 
@@ -143,11 +206,10 @@ class SearchDCAPIView(APIView):
                 # regex_transformations = [re.compile(f'^{re.escape(transform)}$', re.IGNORECASE) for transform in tests_required]
                 # test_details_condition = {"AvailableTest": {"$elemMatch": { "$all": regex_transformations}} }
                 # Add condition for testDetails field
-                # test_details_condition = {"AvailableTestCode": { "$all": search_tests_inputstring}}  # now search like  eg. [ { "item_value": "100001", "item_label": "2 D Echocardiography" } ]
-                test_details_condition = {"AvailableTestCode": {
-                        "$all": [{"$elemMatch": {"item_value": val}} for val in search_tests_inputstring]
-                    }}
-                # test_details_condition = {'AvailableTestCode': {'$all': [{'$elemMatch': {'item_value': '100001'}}, {'$elemMatch': {'item_value': '100002'}}]}} and it return value. input comes in " search_tests_inputstring = ["100001", "100002"] "
+                test_details_condition = {"AvailableTestCode": { "$all": search_tests_inputstring}}  # now search like  eg. [ { "item_value": "100001", "item_label": "2 D Echocardiography" } ]
+                # test_details_condition = {"AvailableTestCode": {
+                #         "$all": [{"$elemMatch": {"item_value": val}} for val in search_tests_inputstring]
+                #     }}   # test_details_condition = {'AvailableTestCode': {'$all': [{'$elemMatch': {'item_value': '100001'}}, {'$elemMatch': {'item_value': '100002'}}]}} and it return value. input comes in " search_tests_inputstring = ["100001", "100002"] "
                 query_conditions.append(test_details_condition)
 
             # Combine all conditions using the $and operator
@@ -454,94 +516,83 @@ class TicketUpdateAPIView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-
-# basic authorization 
-freshdesk_username = 'p8StXeOUFSoTHBrUyco'
-freshdesk_password = 'X'
-freshdesk_url = 'https://alineahealthcare.freshdesk.com/'
-
-# Concatenate username and password with a colon
-auth_string = f'{freshdesk_username}:{freshdesk_password}'
-# Encode the auth string to base64
-auth_encoded = base64.b64encode(auth_string.encode()).decode()
-
-# Update Freshdesk Ticket update
-def ticketStatusUpdate(ticket_id):
-    try:
-        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
-        # update status Resolved 4
-        body_data = {
-            "status": 4,
-        }
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Basic {auth_encoded}'
-        }
-        response = requests.put(url, json=body_data, headers=headers)
-        res = response.json()
-        if response.status_code == 200:
-            print("Ticket updated successfully!")
-            response_data = {
-                "status":  "Successful",
-                "message":  "Ticket updated successfully!",
-                "serviceName": "ticketStatusUpdate_Function",
-                "timeStamp": datetime.datetime.now().isoformat(),
-                "code": 200,
-            }
-        else:
-            print("Failed to update ticket. Status code:", response.status_code)
-            response_data = {
-                "status":  res['code'],
-                "message":  res['message'],
-                "serviceName": "ticketStatusUpdate_Function",
-                "timeStamp": datetime.datetime.now().isoformat(),
-                "code": response.status_code,
-            }
-        # return Response(response_data)
-    except requests.exceptions.RequestException as e:
-        print("Error making request:", e)
-        response_data = {
-            "status": "Failed",
-            "message": e,
-            "serviceName": "ticketStatusUpdate_Function",
-            "timeStamp": datetime.datetime.now().isoformat(),
-            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        }
-        # return Response(response_data)
-    print(response_data)
-    return(response_data)
-# ticketStatusUpdate(569752)
-
-
 # Self Empanelment list view
-class SelfEmpanelmentList(generics.ListCreateAPIView):
-    serializer_class = SelfEmpanelmentSerializer
-    permission_classes = []
+# class SelfEmpanelmentList(generics.ListCreateAPIView):
+#     serializer_class = SelfEmpanelmentSerializer
+#     permission_classes = []
     
-    def get_queryset(self):
-        return selfEmpanelment_collection.find()
-    
+class SelfEmpanelmentList(APIView):
+    def get(self, request):
+        cursor = selfEmpanelment_collection.find()
+        print(cursor)
+        providerData = []
+        for document in cursor:
+                # print(document)
+                # Filter specific fields here
+                filtered_data = {
+                    "dcname": document["dcname"],
+                    # "text_field": document["text_field"],
+                    "pan_number": document["pan_number"],
+                    # "aadhar_number": document["aadhar_number"],
+                    "pan_image": base64.b64encode(document['pan_image']).decode('utf-8'),
+                }
+                providerData.append(filtered_data)
 
+        if providerData:
+                response_data = {
+                    "status": "Successful",
+                    # "data": serializer.data,
+                    "data": providerData,
+                    "message": "Document Found Successfully",
+                    "serviceName": "EmpanelmentDetails_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_200_OK,
+                    }
+                return Response(response_data)
+        else:
+                return Response({'error': 'Document not found'}, status=404)
+    
+# testing
 class FileUploadView(APIView):
     def post(self, request, format=None):
-        file = request.data['pan_image']
-        dcname = request.data.get('dcname')
-        pan_number = request.data.get('pan_number')
-        text_field = request.data.get('text_field')
-        
-        # Store file and additional data in MongoDB
-        data = {
-            'dcname': dcname,
-            'pan_number': pan_number,
-            'text_field': text_field,
-            'pan_image': file.read()
-        }
-        selfEmpanelment_collection.insert_one(data)
-        return Response(status=status.HTTP_201_CREATED)
+        try:
+            form_data = request.data
+            # Get data from request
+            # serializer = SelfEmpanelmentSerializer(data=form_data)
+            # if serializer.is_valid():
+            #     dc_data = serializer.data
+            # else:
+            #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            pan_image = form_data.get('pan_image')
+            dcname = form_data.get('dcName')
+            pan_number = form_data.get('pan_number')
+            aadhar_number = form_data.get('aadhar_number')
+            
+            # Store file and additional data in MongoDB
+            data = {
+                'dcname': dcname,
+                'pan_number': pan_number,
+                'aadhar_number': aadhar_number,
+                'pan_image': pan_image.read()
+            }
+            # print(data)
+            result = selfEmpanelment_collection.insert_one(data)
+            response_data = {
+                        "status": "Successful",
+                        "document_id": str(result.inserted_id),
+                        "message": "testing created Successfully",
+                        "serviceName": "FileUploadView_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": 201,
+                        }
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": e}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 # SelfEmpanelment
 class SelfEmpanelmentCreateAPIView(APIView):
-    def post(self, request,id=None, *args, **kwargs):
+    def post(self, request, id=None, *args, **kwargs):
         ticketId_from_url = id
         if ticketId_from_url == None:
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)

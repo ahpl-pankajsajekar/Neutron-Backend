@@ -3,12 +3,12 @@ from django.shortcuts import render
 
 from rest_framework.views import APIView
 from Account.serializers import UserRegistrationSerializer, UserLoginSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken # type: ignore
 from rest_framework import status
 from rest_framework.response import Response
-from .models import selfEmpanelmentCollection, UserMasterCollection
+from .models import UserMasterCollection
 
-# Create your views here.
+
 # Genrate Token manually
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -20,7 +20,6 @@ def get_tokens_for_user(user):
 # login user
 class loginAPIView(APIView):
     serializer_class = UserLoginSerializer
-    permission_classes = ()
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
@@ -28,12 +27,12 @@ class loginAPIView(APIView):
         if valid:
             status_code = status.HTTP_200_OK
             response = {
-                'success': True,
-                'statusCode': status_code,
+                'status': "Successful",
+                'data': serializer.data,
                 'message': 'User logged in successfully',
-                'authenticatedUser': {
-                    'data': serializer.data,
-                }
+                "serviceName": "UserLogin_Service",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": status.HTTP_200_OK,
             }
             return Response(response, status=status_code)
 

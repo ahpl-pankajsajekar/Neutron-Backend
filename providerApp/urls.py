@@ -18,6 +18,8 @@ urlpatterns = [
     path('DCView/', views.DCDetailAPIView.as_view()),
     # Self Empanelment
     path('selfempanelment/add/<int:id>/', views.SelfEmpanelmentCreateAPIView.as_view()),
+    path('selfempanelments/', views.SelfEmpanelmentList.as_view()),
+
     # Change Dc Status
     path('dcstatus/', views.DCStatusChangeAPIView.as_view()),
 

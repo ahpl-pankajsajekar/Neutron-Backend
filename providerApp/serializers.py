@@ -9,9 +9,9 @@ class EmpanelmentSerializer(serializers.Serializer):
     LastName = serializers.CharField(max_length=150)
     
 class SelfEmpanelmentSerializer(serializers.Serializer):
-    # DCName = serializers.CharField(max_length=180)
-    # pan_image = serializers.ImageField()
-    pass
+    dcName = serializers.CharField(max_length=180)
+    pan_image = serializers.ImageField()
+
 
 # Change DC Status
 class DCStatusChangeSerializer(serializers.Serializer):

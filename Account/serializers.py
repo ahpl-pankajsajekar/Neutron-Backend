@@ -18,26 +18,54 @@ class UserLoginSerializer(serializers.Serializer):
     def validate(self, data):
         email = data['email'].lower()
         password = data['password']
-        User = UserMasterCollection.find_one({'email': email})
-        print(User)
+        User = UserMasterCollection.find_one({'email': email, 'password': password})
+        print(type(User), User)
         if User is None:
+            print("user is none")
             try:
                 UserMasterCollection.find_one({'email': email})
                 raise serializers.ValidationError("Invalid login credentials!")
             except Exception as e:
-                raise serializers.ValidationError("User does not exists! {e}")
+                raise serializers.ValidationError(f"User does not exists!")
         try:
             if User is not None: 
-                refresh = RefreshToken.for_user(User)
+                print("user is not none if cond")
+                refresh = RefreshToken()
+                # refresh = RefreshToken.for_user(User)
                 refresh_token = str(refresh)
                 access_token = str(refresh.access_token)
-                validation = {
+                print(refresh)
+                validated_data = {
                     'access': access_token,
                     'refresh': refresh_token,
+                    'email': User['email'],
                 }
-                return validation
+                return validated_data
             else:
                 raise serializers.ValidationError("Invalid login credentials!")
             
         except Exception as e:
-            raise serializers.ValidationError("User does not exists! {e}")
+            raise serializers.ValidationError(f"User does not exists! {e}".format())
+
+    def validate(self, data):
+        email = data['email'].lower()
+        password = data['password']
+        # Find the user by email and password
+        user = UserMasterCollection.find_one({'email': email, 'password': password})
+        if user is None:
+            raise serializers.ValidationError("Invalid login credentials!")
+        # Generate tokens
+        refresh = RefreshToken()
+        user_id = user['_id']
+        print(type(user), user , user_id)
+        # refresh = RefreshToken.for_user(user)
+        refresh_token = str(refresh)
+        access_token = str(refresh.access_token)
+        # Construct validated data
+        validated_data = {
+            'access': access_token,
+            'refresh': refresh_token,
+            'email': user['email'],
+            'user_id': user_id,
+        }
+        return validated_data

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -42,10 +43,17 @@ INSTALLED_APPS = [
     
     # Jwt token Authentication
     'rest_framework_simplejwt',
+    # 'mongo_auth',
     
     # Forgot passwd
     'django_rest_passwordreset',
 ]
+
+# Minimal settings (all mandatory)
+# MANGO_JWT_SETTINGS = {
+#     "db_name": "test_mongo",
+# }
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -152,6 +160,18 @@ REST_FRAMEWORK = {
     # JWT Token allow Authentication
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ),
     
+}
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    
+    "USER_ID_FIELD": "_id",
+    "USER_ID_CLAIM": "user_id",
 }
