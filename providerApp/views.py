@@ -296,6 +296,32 @@ class SearchDCAPIView(APIView):
             return Response(serializer_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# Dc Analytics API
+class DCAnalyticsAPIView(APIView):
+    def get(self, request, formate=None):
+        
+        dc_status_activate_count = neutron_collection.count_documents({'DCStatus': 'activate'})
+        dc_status_deactivate_count = neutron_collection.count_documents({'DCStatus': 'deactivate'})
+        dc_status_delist_count = neutron_collection.count_documents({'DCStatus': 'delist'})
+
+        response_data = {
+            'activateDC' : dc_status_activate_count,
+            'deactivateDC' : dc_status_deactivate_count,
+            'delistDC' : dc_status_delist_count,
+        }
+
+        serializer_data = {
+            "status": "Success",
+            "data": response_data,
+            "message": "DC analytics Retrieved Successfully",
+            "serviceName": "DCAnalytics_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_200_OK,
+        }
+        return Response(serializer_data)
+
+
+
 # Get Dc documents in Details
 class DCDetailAPIView(APIView):
     def get(self, request, formate=None):
@@ -538,7 +564,10 @@ class FileUploadView(APIView):
             dcname = form_data.get('dcName')
             pan_number = form_data.get('pan_number')
             aadhar_number = form_data.get('aadhar_number')
-            
+            # pan_image = request.FILES.get('pan_image')
+            # Check if file was provided
+            if not pan_image:
+                return Response({'error': 'Pan image is required'}, status=400)
             # Store file and additional data in MongoDB
             data = {
                 'dcname': dcname,
@@ -556,6 +585,7 @@ class FileUploadView(APIView):
                         "timeStamp": datetime.datetime.now().isoformat(),
                         "code": 201,
                         }
+            print(response_data)
             return Response(response_data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": e}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

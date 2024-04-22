@@ -14,6 +14,7 @@ urlpatterns = [
     # Search DC  ex. { "q": "Mumbai", "t": [ { "item_value": "100001", "item_label": "2 D Echocardiography" } ] }
     path('search/', views.SearchDCAPIView.as_view()),
     # DC
+    path('DC/analytic/', views.DCAnalyticsAPIView.as_view()),
     path('DC/detail/', views.DCDetailAPIView.as_view()),
     path('DC/update/', views.DCUpdateAPIView.as_view()),
     # Self Empanelment
