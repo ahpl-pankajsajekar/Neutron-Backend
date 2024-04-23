@@ -12,6 +12,9 @@ class SelfEmpanelmentSerializer(serializers.Serializer):
     # dcName = serializers.CharField(max_length=180)
     # pan_image = serializers.ImageField()
     pass
+class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
+    DCVerificationStatus = serializers.CharField(max_length=180)
+    id = serializers.CharField(max_length=180)
 
 
 # Change DC Status

@@ -15,7 +15,7 @@ import re
 import requests  # type: ignore
 import base64
 
-from providerApp.serializers import DCSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer
+from providerApp.serializers import DCSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer
 from .models import neutron_collection, person_collection, selfEmpanelment_collection
 
 from rest_framework.permissions import IsAuthenticated
@@ -419,20 +419,44 @@ class EmpanelmentCreateAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-class EmpanelmentDetailAPIView(APIView):
-    def get(self, request):
+# Verify view
+class selfEmpanelmentDetailAPIView(APIView):
+    def post(self, request):
         try:
-            empanelmentID_query = request.query_params.get('id')
+            empanelmentID_query = request.data['id']
             if empanelmentID_query is None:
                 return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
             document = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query) })
 
+            providerData = {
+                        "providerName": document.get("providerName", ""),
+                        "PanCard_number" : document.get("PanCard_number", ""),
+                        "nameOnPanCard" : document.get("nameOnPanCard", ""),
+                        "Adhar_number" : document.get("Adhar_number", ""),
+                        "Adhar_name" : document.get("Adhar_name", ""),
+                        "Accredation" : document.get("Accredation", ""),
+                        # "pan_image": base64.b64encode(document['pan_image']).decode('utf-8'),
+                        # 'aadhar_image': base64.b64encode(document['pan_image']).decode('utf-8'),
+                        # 'Accreditation_image': base64.b64encode(document['Accreditation_image']).decode('utf-8'),
+                        # 'Registration_Number_image': base64.b64encode(document['Registration_Number_image']).decode('utf-8'),
+                        # 'Ownership_image': base64.b64encode(document['Ownership_image']).decode('utf-8'),
+                        # 'TDS_image': base64.b64encode(document['TDS_image']).decode('utf-8'),
+                    }
+            
+            # Check if image fields exist before accessing
+            image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            for field in image_fields:
+                if field in document:
+                    providerData[field] = base64.b64encode(document[field]).decode('utf-8')
+                else:
+                    providerData[field] = "" 
+
             if document:
                 response_data = {
                     "status": "Successful",
-                    # "data": serializer.data,
-                    "data": json.loads(json_util.dumps(document)),
+                    "data": providerData,
+                    # "data": json.loads(json_util.dumps(document)),
                     "message": "Document Found Successfully",
                     "serviceName": "EmpanelmentDetails_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
@@ -470,7 +494,67 @@ class EmpanelmentDeleteAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
  
+
+
+class SelfEmpanelmentSelect(APIView):
+    def get(self, request):
+        cursor = selfEmpanelment_collection.find()
+        providerData = []
+        for document in cursor:
+                # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+            }
+            providerData.append(filtered_data)
+
+        return Response(providerData)
+
+class SelfEmpanelmentVerificationAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        form_data=request.data
+        try: 
+            serializer = SelfEmpanelmentVerificationSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer_data = serializer.data
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            empanelmentID_query = request.data['id']
+            
+            # get data
+            getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
+            # updata Data remaining                                                 
+            # document = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': serializer_data} )
+            
+            ticket_id = getDocuments['TicketID']
+            if request.data['DCVerificationStatus'] == 'verify':
+                # verify
+                ticket_status_code = 4
+            else:
+                # partial verify
+                ticket_status_code = 3
+
+            ticketStatusUpdate(ticket_id, ticket_status_code)
+
+            if getDocuments:
+                response_data = {
+                    "status": "Successful",
+                    "data": json.loads(json_util.dumps(getDocuments)),
+                    "message": "Document Found Successfully",
+                    "serviceName": "EmpanelmentDetails_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_200_OK,
+                    }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found'}, status=404)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
     
+# self empanelment for dc verifycation    
 class SelfEmpanelmentList(APIView):
     def get(self, request):
         cursor = selfEmpanelment_collection.find()
@@ -478,11 +562,8 @@ class SelfEmpanelmentList(APIView):
         for document in cursor:
                 # Filter specific fields here
                 filtered_data = {
-                    # "id": document["_id"],
-                    "dcname": document["dcname"],
-                    # "text_field": document["text_field"],
-                    "pan_number": document["pan_number"],
-                    # "aadhar_number": document["aadhar_number"],
+                    "_id": str(document["_id"]),
+                    "providerName": document["providerName"],
                     "pan_image": base64.b64encode(document['pan_image']).decode('utf-8'),
                 }
                 providerData.append(filtered_data)
@@ -594,18 +675,114 @@ class FileUploadView(APIView):
 class SelfEmpanelmentCreateAPIView(APIView):
     def post(self, request, id=None, *args, **kwargs):
         ticketId_from_url = id
+        form_data=request.data
         if ticketId_from_url == None:
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             # Get data from request
-            serializer = SelfEmpanelmentSerializer(data=request.data)
+            serializer = SelfEmpanelmentSerializer(data=form_data)
             if serializer.is_valid():
                 dc_data = serializer.data
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+            TicketID = form_data.get('TicketID')
+            DCID = form_data.get('DCID')
+            providerName = form_data.get('providerName')
+            providerType = form_data.get('providerType')
+            DC_Chain = form_data.get('DC_Chain')
+            Regi_number = form_data.get('Regi_number')
+            Inception = form_data.get('Inception')
+            Owner_name = form_data.get('Owner_name')
+            PanCard_number = form_data.get('PanCard_number')
+            nameOnPanCard = form_data.get('nameOnPanCard')
+            Adhar_number = form_data.get('Adhar_number')
+            Adhar_name = form_data.get('Adhar_name')
+            Center_name = form_data.get('Center_name')
+            Grade = form_data.get('Grade')
+            Tier = form_data.get('Tier')
+            Accredation = form_data.get('Accredation')
+            Station = form_data.get('Station')
+            address1 = form_data.get('address1')
+            address2 = form_data.get('address2')
+            ahplLocation = form_data.get('ahplLocation')
+            lcLocation = form_data.get('lcLocation')
+            state = form_data.get('state')
+            city = form_data.get('city')
+            pincode = form_data.get('pincode')
+            zone = form_data.get('zone')
+            emailId = form_data.get('emailId')
+            emailId2 = form_data.get('emailId2')
+            Cantact_person1 = form_data.get('Cantact_person1')
+            Cantact_person2 = form_data.get('Cantact_person2')
+            fax = form_data.get('fax')
+            accountNumber = form_data.get('accountNumber')
+            accountName = form_data.get('accountName')
+            bankName = form_data.get('bankName')
+            ifscCode = form_data.get('ifscCode')
+            branchName = form_data.get('branchName')
+            accountType = form_data.get('accountType')
+            paymentToBeMadeInFavorOf = form_data.get('paymentToBeMadeInFavorOf')
+            paymentMode = form_data.get('paymentMode')
+
+            pan_image = form_data.get('pan_image')
+            aadhar_image = form_data.get('aadhar_image')
+            Accreditation_image = form_data.get('Accreditation_image')
+            Registration_Number_image = form_data.get('Registration_Number_image')
+            Ownership_image = form_data.get('Ownership_image')
+            TDS_image = form_data.get('TDS_image')
+            ECHOCARDIOGRAPHY = form_data.get('ECHOCARDIOGRAPHY')
+            MD_RADIOLOGIST = form_data.get('MD_RADIOLOGIST')
+            data = {
+                'TicketID': TicketID,
+                'DCID': DCID,
+                'providerName': providerName,
+                'providerType': providerType,
+                'DC_Chain': DC_Chain,
+                'Regi_number': Regi_number,
+                'Inception': Inception,
+                'Owner_name': Owner_name,
+                'PanCard_number': PanCard_number,
+                'nameOnPanCard': nameOnPanCard,
+                'Adhar_number': Adhar_number,
+                'Adhar_name': Adhar_name,
+                'Center_name': Center_name,
+                'Grade': Grade,
+                'Tier': Tier,
+                'Accredation': Accredation,
+                'Station': Station,
+                'address1': address1,
+                'address2': address2,
+                'ahplLocation': ahplLocation,
+                'lcLocation': lcLocation,
+                'state': state,
+                'city': city,
+                'pincode': pincode,
+                'zone': zone,
+                'emailId': emailId,
+                'emailId2': emailId2,
+                'Cantact_person1': Cantact_person1,
+                'Cantact_person2': Cantact_person2,
+                'fax': fax,
+                'accountNumber': accountNumber,
+                'accountName': accountName,
+                'bankName': bankName,
+                'ifscCode': ifscCode,
+                'branchName': branchName,
+                'accountType': accountType,
+                'paymentToBeMadeInFavorOf': paymentToBeMadeInFavorOf,
+                'paymentMode': paymentMode,
+                'ECHOCARDIOGRAPHY': ECHOCARDIOGRAPHY,
+                'MD_RADIOLOGIST': MD_RADIOLOGIST,
+                'pan_image': pan_image.read(),
+                'aadhar_image': aadhar_image.read(),
+                'Accreditation_image': Accreditation_image.read(),
+                'Registration_Number_image': Registration_Number_image.read(),
+                'Ownership_image': Ownership_image.read(),
+                'TDS_image': TDS_image.read(),
+            }
             # Create data in MongoDB
-            result = selfEmpanelment_collection.insert_one(request.data)
+            result = selfEmpanelment_collection.insert_one(data)
             # change status in freshdesk
             # 49 = submited to DC
             ticketStatusUpdate(ticketId_from_url, 49)
