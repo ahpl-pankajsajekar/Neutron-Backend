@@ -725,12 +725,12 @@ class SelfEmpanelmentCreateAPIView(APIView):
             paymentToBeMadeInFavorOf = form_data.get('paymentToBeMadeInFavorOf')
             paymentMode = form_data.get('paymentMode')
 
-            pan_image = form_data.get('pan_image')
-            aadhar_image = form_data.get('aadhar_image')
-            Accreditation_image = form_data.get('Accreditation_image')
-            Registration_Number_image = form_data.get('Registration_Number_image')
-            Ownership_image = form_data.get('Ownership_image')
-            TDS_image = form_data.get('TDS_image')
+            # pan_image = form_data.get('pan_image')
+            # aadhar_image = form_data.get('aadhar_image')
+            # Accreditation_image = form_data.get('Accreditation_image')
+            # Registration_Number_image = form_data.get('Registration_Number_image')
+            # Ownership_image = form_data.get('Ownership_image')
+            # TDS_image = form_data.get('TDS_image')
             ECHOCARDIOGRAPHY = form_data.get('ECHOCARDIOGRAPHY')
             MD_RADIOLOGIST = form_data.get('MD_RADIOLOGIST')
             data = {
@@ -774,13 +774,23 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'paymentMode': paymentMode,
                 'ECHOCARDIOGRAPHY': ECHOCARDIOGRAPHY,
                 'MD_RADIOLOGIST': MD_RADIOLOGIST,
-                'pan_image': pan_image.read(),
-                'aadhar_image': aadhar_image.read(),
-                'Accreditation_image': Accreditation_image.read(),
-                'Registration_Number_image': Registration_Number_image.read(),
-                'Ownership_image': Ownership_image.read(),
-                'TDS_image': TDS_image.read(),
+                # 'pan_image': pan_image.read(),
+                # 'aadhar_image': aadhar_image.read(),
+                # 'Accreditation_image': Accreditation_image.read(),
+                # 'Registration_Number_image': Registration_Number_image.read(),
+                # 'Ownership_image': Ownership_image.read(),
+                # 'TDS_image': TDS_image.read(),
             }
+
+            # Check if image fields exist before accessing
+            image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            for field in image_fields:
+                if field in form_data:
+                    data[field] = form_data.get(field).read()
+                else:
+                    pass
+                    # data[field] = None
+            
             # Create data in MongoDB
             result = selfEmpanelment_collection.insert_one(data)
             # change status in freshdesk
