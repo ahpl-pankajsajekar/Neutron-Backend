@@ -530,10 +530,12 @@ class SelfEmpanelmentVerificationAPIView(APIView):
             ticket_id = getDocuments['TicketID']
             if request.data['DCVerificationStatus'] == 'verify':
                 # verify
-                ticket_status_code = 4
+                # 50 Forwarded to legal after QC1
+                ticket_status_code = 50
             else:
                 # partial verify
-                ticket_status_code = 3
+	            # 52  Issue In Document
+                ticket_status_code = 52
 
             ticketStatusUpdate(ticket_id, ticket_status_code)
 
