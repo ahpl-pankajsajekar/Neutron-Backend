@@ -514,27 +514,32 @@ class SelfEmpanelmentVerificationAPIView(APIView):
     def post(self, request, *args, **kwargs):
         form_data=request.data
         try: 
-            serializer = SelfEmpanelmentVerificationSerializer(data=request.data)
+            serializer = SelfEmpanelmentVerificationSerializer(data=form_data)
             if serializer.is_valid():
                 serializer_data = serializer.data
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
-            empanelmentID_query = request.data['id']
+            empanelmentID_query = form_data['id']
             
             # get data
             getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
-            # updata Data remaining                                                 
-            # document = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': serializer_data} )
-            
+                
+            data = {
+                "verificationRemark" : form_data['verificationRemark'],
+                "DCVerificationStatus" : form_data['DCVerificationStatus'],
+            }    
+            # update data in existing documents                            
+            selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': data} )
             ticket_id = getDocuments['TicketID']
-            if request.data['DCVerificationStatus'] == 'verify':
+            if form_data['DCVerificationStatus'] == 'verify':
                 # verify
                 # 50 Forwarded to legal after QC1
+	            # 51 Document verified by legal
                 ticket_status_code = 50
             else:
                 # partial verify
-	            # 52  Issue In Document
+	            # 52 Issue In Document
                 ticket_status_code = 52
 
             ticketStatusUpdate(ticket_id, ticket_status_code)
