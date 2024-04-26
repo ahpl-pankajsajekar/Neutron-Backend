@@ -524,13 +524,15 @@ class SelfEmpanelmentVerificationAPIView(APIView):
             
             # get data
             getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
-                
+            # removes id data
+            del form_data['id']
             data = {
                 "verificationRemark" : form_data['verificationRemark'],
                 "DCVerificationStatus" : form_data['DCVerificationStatus'],
+                "isPanVerify": form_data['isPanVerify'],
             }    
             # update data in existing documents                            
-            selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': data} )
+            selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': form_data} )
             ticket_id = getDocuments['TicketID']
             if form_data['DCVerificationStatus'] == 'verify':
                 # verify
@@ -640,7 +642,7 @@ class SelfEmpanelmentUpdateAPIView(APIView):
 class FileUploadView(APIView):
     def post(self, request, format=None):
         try:
-            form_data = request.data
+            form_data = request.data.copy()
             # Get data from request
             # serializer = SelfEmpanelmentSerializer(data=form_data)
             # if serializer.is_valid():
@@ -682,10 +684,10 @@ class FileUploadView(APIView):
 class SelfEmpanelmentCreateAPIView(APIView):
     def post(self, request, id=None, *args, **kwargs):
         ticketId_from_url = id
-        form_data=request.data
         if ticketId_from_url == None:
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            form_data=request.data
             # Get data from request
             serializer = SelfEmpanelmentSerializer(data=form_data)
             if serializer.is_valid():
