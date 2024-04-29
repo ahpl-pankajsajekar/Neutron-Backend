@@ -9,13 +9,15 @@ class EmpanelmentSerializer(serializers.Serializer):
     LastName = serializers.CharField(max_length=150)
     
 class SelfEmpanelmentSerializer(serializers.Serializer):
-    # dcName = serializers.CharField(max_length=180)
-    # pan_image = serializers.ImageField()
-    pass
+    providerName = serializers.CharField(max_length=250)
+    Regi_number = serializers.CharField(max_length=250)
+    Owner_name = serializers.CharField(max_length=250)
+    PanCard_number = serializers.CharField(max_length=250)
+    pan_image = serializers.ImageField()
 
 class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
-    DCVerificationStatus = serializers.CharField(max_length=180)
     id = serializers.CharField(max_length=180)
+    DCVerificationStatus = serializers.CharField(max_length=180)
 
 # Change DC Status
 class DCStatusChangeSerializer(serializers.Serializer):

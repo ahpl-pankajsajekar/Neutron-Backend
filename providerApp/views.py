@@ -15,10 +15,13 @@ import re
 import requests  # type: ignore
 import base64
 
-from providerApp.serializers import DCSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer
-from .models import neutron_collection, person_collection, selfEmpanelment_collection
+from Account.middleware import JWTAuthenticationMiddleware
+from Account.permissions import CustomPermission
+from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer
+from .models import neutron_collection, selfEmpanelment_collection
 
 from rest_framework.permissions import IsAuthenticated
+from pymongo.errors import DuplicateKeyError
 
 
 # basic authorization 
@@ -82,9 +85,9 @@ def ticketStatusUpdate(ticket_id, ticket_status_code):
 
 class home(APIView):
     def get(self, request, *args, **kwargs):
-        # person_collection.create_index([("$**", "text")])
+        # selfEmpanelment_collection.create_index([("$**", "text")])
         # search_query = "Sajekar"
-        # personData = person_collection.find({ "$text": { "$search": search_query } })
+        # personData = selfEmpanelment_collection.find({ "$text": { "$search": search_query } })
         # return JsonResponse(personData, safe=False)
         return Response("hello")
     
@@ -156,9 +159,11 @@ class ADD_DC_APIIntegrations(APIView):
 
 # Search in this fields q params [DCID, Pincode, DC Name, City] and t params [AvailableTest]. where that data matched that documents (records) will show
 class SearchDCAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [JWTAuthenticationMiddleware]
+    permission_classes = [CustomPermission]
 
     def post(self, request, format=None):
+        print("-------", request.user)
         try:
             data = json.loads(request.body) 
             # Access the value of the 't' key
@@ -181,7 +186,7 @@ class SearchDCAPIView(APIView):
             # page_number = int(request.query_params.get('page', 1))
             # page_size = int(request.query_params.get('page_size', 8))
 
-            if search_query_inputstring is None:
+            if search_query_inputstring is None or (search_query_inputstring == '' and search_tests_inputstring == []):
                 return Response({"error": "Search term not provided"}, status=status.HTTP_400_BAD_REQUEST)
             
             # Initialize the query dictionary
@@ -405,7 +410,7 @@ class EmpanelmentCreateAPIView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
             # Create data in MongoDB
-            result = person_collection.insert_one(request.data)
+            result = selfEmpanelment_collection.insert_one(request.data)
             response_data = {
                     "status": "Successful",
                     "document_id": str(result.inserted_id),
@@ -477,7 +482,7 @@ class EmpanelmentDeleteAPIView(APIView):
             if empanelmentID_query is None:
                 return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-            document = person_collection.delete_one({'_id': ObjectId(empanelmentID_query) })
+            document = selfEmpanelment_collection.delete_one({'_id': ObjectId(empanelmentID_query) })
 
             if document.deleted_count == 1:
                 response_data = {
@@ -501,7 +506,7 @@ class SelfEmpanelmentSelect(APIView):
         cursor = selfEmpanelment_collection.find()
         providerData = []
         for document in cursor:
-                # Filter specific fields here
+            # Filter specific fields here
             filtered_data = {
                 "id": str(document["_id"]),  # Convert ObjectId to string if needed
                 "providerName": document["providerName"],
@@ -695,8 +700,6 @@ class SelfEmpanelmentCreateAPIView(APIView):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            TicketID = form_data.get('TicketID')
-            DCID = form_data.get('DCID')
             providerName = form_data.get('providerName')
             providerType = form_data.get('providerType')
             DC_Chain = form_data.get('DC_Chain')
@@ -734,17 +737,11 @@ class SelfEmpanelmentCreateAPIView(APIView):
             paymentToBeMadeInFavorOf = form_data.get('paymentToBeMadeInFavorOf')
             paymentMode = form_data.get('paymentMode')
 
-            # pan_image = form_data.get('pan_image')
-            # aadhar_image = form_data.get('aadhar_image')
-            # Accreditation_image = form_data.get('Accreditation_image')
-            # Registration_Number_image = form_data.get('Registration_Number_image')
-            # Ownership_image = form_data.get('Ownership_image')
-            # TDS_image = form_data.get('TDS_image')
             ECHOCARDIOGRAPHY = form_data.get('ECHOCARDIOGRAPHY')
             MD_RADIOLOGIST = form_data.get('MD_RADIOLOGIST')
             data = {
-                'TicketID': TicketID,
-                'DCID': DCID,
+                'TicketID': str(ticketId_from_url),
+                'DCID': str(ticketId_from_url),
                 'providerName': providerName,
                 'providerType': providerType,
                 'DC_Chain': DC_Chain,
@@ -783,12 +780,6 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'paymentMode': paymentMode,
                 'ECHOCARDIOGRAPHY': ECHOCARDIOGRAPHY,
                 'MD_RADIOLOGIST': MD_RADIOLOGIST,
-                # 'pan_image': pan_image.read(),
-                # 'aadhar_image': aadhar_image.read(),
-                # 'Accreditation_image': Accreditation_image.read(),
-                # 'Registration_Number_image': Registration_Number_image.read(),
-                # 'Ownership_image': Ownership_image.read(),
-                # 'TDS_image': TDS_image.read(),
             }
 
             # Check if image fields exist before accessing
@@ -814,7 +805,10 @@ class SelfEmpanelmentCreateAPIView(APIView):
                     "code": status.HTTP_201_CREATED,
                     }
             return Response(response_data)
-            
+        
+        except DuplicateKeyError:
+            error_detail = "Duplicate key error: This Ticket is already Exits."
+            return Response({'error': error_detail}, status=400) 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -822,8 +816,9 @@ class SelfEmpanelmentCreateAPIView(APIView):
 # Dc Chanage Status Activate and deactivate, delist
 class DCStatusChangeAPIView(APIView):
     def post(self, request):
-        data = request.data
+        fromdata = request.data
         try:
+            DCStatusChangeSerializer(data=fromdata).is_valid()
             dcID_query = int(request.query_params.get('dc', None))
             if dcID_query is None:
                 return Response({"error": "DC Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -832,7 +827,7 @@ class DCStatusChangeAPIView(APIView):
             print(dc_count)
             if dc_count == 0:
                 return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
-            document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': data})
+            document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': fromdata})
              # Check if the update was successful
             if document.modified_count > 0:
                 response_data = {

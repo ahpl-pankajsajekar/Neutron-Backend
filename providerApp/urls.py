@@ -6,13 +6,13 @@ urlpatterns = [
 
 
     path('empanelment/add/', views.EmpanelmentCreateAPIView.as_view()),
+    path('empanelment/delete/', views.EmpanelmentDeleteAPIView.as_view()),
 
     # Dc verify
     path('selfemp/select/', views.SelfEmpanelmentSelect.as_view()),
     path('selfemp/verification/', views.SelfEmpanelmentVerificationAPIView.as_view()),
     path('empanelment/', views.selfEmpanelmentDetailAPIView.as_view()),
 
-    path('empanelment/delete/', views.EmpanelmentDeleteAPIView.as_view()),
 
     # testing
     path('selfemp/add/', views.FileUploadView.as_view()),

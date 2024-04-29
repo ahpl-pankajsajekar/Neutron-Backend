@@ -2,11 +2,14 @@ import datetime
 from django.shortcuts import render
 
 from rest_framework.views import APIView
-from Account.serializers import UserRegistrationSerializer, UserLoginSerializer
+from Account.serializers import ChangePasswordSerializer, UserRegistrationSerializer, UserLoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken # type: ignore
 from rest_framework import status
 from rest_framework.response import Response
 from .models import UserMasterCollection
+
+from django.contrib.auth.hashers import make_password
+from pymongo.errors import DuplicateKeyError
 
 
 # Genrate Token manually
@@ -36,20 +39,28 @@ class loginAPIView(APIView):
             }
             return Response(response, status=status_code)
 
-    
+
 # create user 
 class UserRegistrationAPIView(APIView):
     def post(self, request):
+        user_data = request.data
         try:
             # Get data from request
-            serializer = UserRegistrationSerializer(data=request.data)
+            serializer = UserRegistrationSerializer(data=user_data)
             if serializer.is_valid():
                 dc_data = serializer.data
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+            # delete password2 from body
+            del user_data['password2']
+            user_data['password'] = make_password(user_data['password'])
+            user_data["created_at"] = datetime.datetime.now()
+            user_data["updated_at"] = datetime.datetime.now()
+            user_data["IsActive"] = True
+
             # Create data in MongoDB
-            result = UserMasterCollection.insert_one(request.data)
+            result = UserMasterCollection.insert_one(user_data)
             response_data = {
                     "status": "Successful",
                     "document_id": str(result.inserted_id),
@@ -59,7 +70,33 @@ class UserRegistrationAPIView(APIView):
                     "code": status.HTTP_201_CREATED,
                     }
             return Response(response_data)
-            
+        
+        except DuplicateKeyError:
+            error_detail = "Duplicate key error: This email is already registered."
+            return Response({'error': error_detail}, status=400)   
+        
+
+class ChangePasswordAPIView(APIView):
+    def post(self, request):
+        try:
+            # Get data from request
+            serializer = ChangePasswordSerializer(data=request.data)
+            if serializer.is_valid():
+                dc_data = serializer.data
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+            # Create data in MongoDB
+            result = UserMasterCollection.update_one({}, {'$set': dc_data})
+            response_data = {
+                    "status": "Successful",
+                    "document_id": str(result.inserted_id),
+                    "message": "Change Password Successfully",
+                    "serviceName": "ChangePassword_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                    }
+            return Response(response_data)
+        
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-   
+            return Response({'error': {e}}, status=500)   

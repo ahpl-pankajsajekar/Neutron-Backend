@@ -38,11 +38,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'providerApp',
+    'Account',
     'rest_framework',
     'corsheaders',
     
     # Jwt token Authentication
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt_mongoengine',
     # 'mongo_auth',
     
     # Forgot passwd
@@ -65,6 +67,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # middleware
+    'Account.middleware.JWTAuthenticationMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # If this is used then `CORS_ALLOWED_ORIGINS` will not have any effect
@@ -159,13 +164,26 @@ REST_FRAMEWORK = {
     ],
     # JWT Token allow Authentication
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'Account.middleware.JWTAuthenticationMiddleware',
+        
+        # 'rest_framework_simplejwt_mongoengine.authentication.JWTAuthentication',
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ),
     
 }
 
+SIMPLE_JWT_MONGOENGINE = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "USER_ID_FIELD": "_id",
+    "USER_ID_CLAIM": "user_id",
+
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt_mongoengine.authentication.default_user_authentication_rule',
+    'TOKEN_USER_CLASS': ('rest_framework_simplejwt_mongoengine.models.TokenUser',),
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt_mongoengine.tokens.AccessToken',),
+}
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
