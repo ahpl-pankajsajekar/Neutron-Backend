@@ -1,12 +1,8 @@
-from pyclbr import Class
-from urllib import request
-from django.http import Http404, JsonResponse
 from django.shortcuts import render
 import pymongo
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework import generics
 
 from bson import ObjectId, json_util
 import json
@@ -15,8 +11,7 @@ import re
 import requests  # type: ignore
 import base64
 
-from Account.middleware import JWTAuthenticationMiddleware
-from Account.permissions import CustomPermission
+from Account.permissions import CustomIsAuthenticatedPermission
 from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer
 from .models import neutron_collection, selfEmpanelment_collection
 
@@ -159,11 +154,9 @@ class ADD_DC_APIIntegrations(APIView):
 
 # Search in this fields q params [DCID, Pincode, DC Name, City] and t params [AvailableTest]. where that data matched that documents (records) will show
 class SearchDCAPIView(APIView):
-    # authentication_classes = [JWTAuthenticationMiddleware]
-    permission_classes = [CustomPermission]
+    permission_classes = [CustomIsAuthenticatedPermission]
 
     def post(self, request, format=None):
-        print("-------", request.user)
         try:
             data = json.loads(request.body) 
             # Access the value of the 't' key

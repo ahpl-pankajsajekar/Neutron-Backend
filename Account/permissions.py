@@ -1,12 +1,12 @@
 from rest_framework.permissions import BasePermission
 
-class CustomPermission(BasePermission):
+class CustomIsAuthenticatedPermission(BasePermission):
     def has_permission(self, request, view):
-        # Add your custom logic here
-        # For example, allow access only for authenticated users
-        print("permission class ", request.user)
-        # return request.user and request.user.is_authenticated
-        if request.user:
-            return request.user
+        if request.customMongoUser is None:
+            return False
+                
+        if request.customMongoUser and request.customMongoUser.get('IsActive'):
+            return True
         else:
             return False
+

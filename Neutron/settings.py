@@ -69,7 +69,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     # middleware
-    'Account.middleware.JWTAuthenticationMiddleware',
+    'Account.middleware.CustomJWTAuthenticationMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # If this is used then `CORS_ALLOWED_ORIGINS` will not have any effect
@@ -164,7 +164,6 @@ REST_FRAMEWORK = {
     ],
     # JWT Token allow Authentication
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        # 'Account.middleware.JWTAuthenticationMiddleware',
         
         # 'rest_framework_simplejwt_mongoengine.authentication.JWTAuthentication',
         # 'rest_framework_simplejwt.authentication.JWTAuthentication',

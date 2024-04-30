@@ -2,6 +2,7 @@ import datetime
 from django.shortcuts import render
 
 from rest_framework.views import APIView
+from Account.permissions import CustomIsAuthenticatedPermission
 from Account.serializers import ChangePasswordSerializer, UserRegistrationSerializer, UserLoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken # type: ignore
 from rest_framework import status
@@ -77,24 +78,26 @@ class UserRegistrationAPIView(APIView):
         
 
 class ChangePasswordAPIView(APIView):
+    permission_classes = [CustomIsAuthenticatedPermission]
+
     def post(self, request):
+        user = request.customMongoUser
         try:
-            # Get data from request
-            serializer = ChangePasswordSerializer(data=request.data)
-            if serializer.is_valid():
-                dc_data = serializer.data
-            else:
+            serializer = ChangePasswordSerializer(data=request.data, context={'user': user})
+            if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-            # Create data in MongoDB
-            result = UserMasterCollection.update_one({}, {'$set': dc_data})
+            # new dataFrame
+            newData = {}
+            newData['password'] = make_password(str(request.data.get('password')))
+            newData["updated_at"] = datetime.datetime.now()
+            # update above data in users
+            UserMasterCollection.update_one({'email': user['email']}, {'$set': newData})
             response_data = {
                     "status": "Successful",
-                    "document_id": str(result.inserted_id),
                     "message": "Change Password Successfully",
                     "serviceName": "ChangePassword_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_201_CREATED,
+                    "code": status.HTTP_200_OK,
                     }
             return Response(response_data)
         
