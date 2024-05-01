@@ -18,6 +18,28 @@ from .models import neutron_collection, selfEmpanelment_collection
 from rest_framework.permissions import IsAuthenticated
 from pymongo.errors import DuplicateKeyError
 
+from providerApp.tests import CreateDictsinList
+# update in mongodb
+def MongodbCRUD():
+    # dictsinListData get from test.py
+    dictsinListData = CreateDictsinList()
+    # set filter and queary
+    filter = {
+        }
+    queary = {
+        "$set": {
+           "availableTests" : dictsinListData
+        },
+    }
+
+    try:
+        result = neutron_collection.update_many(filter, queary )
+        print(result)
+        return result
+    except Exception:
+        print("Exception : ", Exception)
+# MongodbCRUD()
+
 
 # basic authorization 
 freshdesk_username = 'p8StXeOUFSoTHBrUyco'

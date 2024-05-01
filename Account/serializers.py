@@ -6,13 +6,19 @@ from .models import UserMasterCollection
 
 from django.contrib.auth.hashers import check_password
 
+# create a tuple 
+UserRole_CHOICES =(  
+    (1, "Network"),  
+    (2, "Legal"),  
+    (3, "IT"),  
+) 
 class UserRegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
-    role = serializers.IntegerField()
+    role = serializers.ChoiceField(choices=UserRole_CHOICES, required=True)
     email = serializers.EmailField(required=True)
     phone = serializers.IntegerField()
-    password = serializers.CharField(max_length=50, write_only=True, min_length=6)
-    password2 = serializers.CharField(max_length=50, write_only=True, min_length=6)
+    password = serializers.CharField(max_length=15, write_only=True, min_length=6)
+    password2 = serializers.CharField(max_length=15, write_only=True, min_length=6)
 
     def __str__(self) -> str:
         return self.email.lower()
