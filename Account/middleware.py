@@ -10,11 +10,16 @@ class CustomJWTAuthenticationMiddleware(MiddlewareMixin):
         super().__init__(get_response)
 
     def __call__(self, request):
+        print("+++++++++++",  settings.SECRET_KEY)
+        print("--------------CustomJWTAuthenticationMiddleware")
         token = request.headers.get('Authorization')
+        email = request.headers.get('Authorization')
         if token:
+            print(token, "got")
             try:
-                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-                user = get_user_by_email(payload.get('email'))
+                # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+                # user = get_user_by_email(payload.get('email'))
+                user = get_user_by_email(email)
                 if user:
                     request.customMongoUser = user
                 else:
