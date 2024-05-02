@@ -11,6 +11,7 @@ import re
 import requests  # type: ignore
 import base64
 
+from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission
 from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer
 from .models import neutron_collection, selfEmpanelment_collection
@@ -517,8 +518,25 @@ class EmpanelmentDeleteAPIView(APIView):
 
 
 class SelfEmpanelmentSelect(APIView):
+    permission_classes = [CustomIsAuthenticatedPermission]
+
     def get(self, request):
+        _user = request.customMongoUser
+        if _user['role'] == 1:
+            filter_query_by_user = "DCVerificationStatus"
+        else:
+            filter_query_by_user = "DCVerificationStatusByLegal"
+
         cursor = selfEmpanelment_collection.find()
+        total_selfEmpanelment = selfEmpanelment_collection.count_documents({})
+        total_selfEmpanelment_verify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
+        total_selfEmpanelment_partialVerify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
+        network_analytics = {
+            "total" : total_selfEmpanelment,
+            "verify" : total_selfEmpanelment_verify,
+            "partialVerify" : total_selfEmpanelment_partialVerify,
+            "pending": total_selfEmpanelment - (total_selfEmpanelment_verify + total_selfEmpanelment_partialVerify)
+        }
         providerData = []
         for document in cursor:
             # Filter specific fields here
@@ -526,12 +544,14 @@ class SelfEmpanelmentSelect(APIView):
                 "id": str(document["_id"]),  # Convert ObjectId to string if needed
                 "providerName": document["providerName"],
             }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             providerData.append(filtered_data)
-
         return Response(providerData)
 
 class SelfEmpanelmentVerificationAPIView(APIView):
     def post(self, request, *args, **kwargs):
+        _user = request.customMongoUser
         form_data=request.data
         try: 
             serializer = SelfEmpanelmentVerificationSerializer(data=form_data)
@@ -546,6 +566,7 @@ class SelfEmpanelmentVerificationAPIView(APIView):
             getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
             # removes id data
             del form_data['id']
+            form_data['verifiedByNetworkUser'] = _user['_id']
             data = {
                 "verificationRemark" : form_data['verificationRemark'],
                 "DCVerificationStatus" : form_data['DCVerificationStatus'],
@@ -582,7 +603,63 @@ class SelfEmpanelmentVerificationAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-    
+
+class SelfEmpanelmentVerificationByLegalAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        _user = request.customMongoUser
+        form_data=request.data
+        try: 
+            serializer = SelfEmpanelmentVerificationSerializer(data=form_data)
+            if serializer.is_valid():
+                serializer_data = serializer.data
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            empanelmentID_query = form_data['id']
+            
+            # get data
+            getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
+            # removes id data
+            form_data['verifiedByLegalUser'] = _user['_id']
+            del form_data['id']
+            print("form_data", form_data)
+            data = {
+                "verificationRemark" : form_data['verificationRemark'],
+                "DCVerificationStatus" : form_data['DCVerificationStatus'],
+                "isPanVerify": form_data['isPanVerify'],
+            }    
+            # update data in existing documents                            
+            selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': form_data} )
+            ticket_id = getDocuments['TicketID']
+            if form_data['DCVerificationStatus'] == 'verify':
+                # verify
+                # 50 Forwarded to legal after QC1
+	            # 51 Document verified by legal
+                ticket_status_code = 51
+            else:
+                # partial verify
+	            # 52 Issue In Document
+                ticket_status_code = 52
+
+            ticketStatusUpdate(ticket_id, ticket_status_code)
+
+            if getDocuments:
+                response_data = {
+                    "status": "Successful",
+                    "data": json.loads(json_util.dumps(getDocuments)),
+                    "message": "Document Found Successfully",
+                    "serviceName": "SelfEmpanelmentVerificationByLegal_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_200_OK,
+                    }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found'}, status=404)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 # self empanelment for dc verifycation    
 class SelfEmpanelmentList(APIView):
     def get(self, request):

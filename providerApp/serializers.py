@@ -18,6 +18,10 @@ class SelfEmpanelmentSerializer(serializers.Serializer):
 class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
     id = serializers.CharField(max_length=180)
     DCVerificationStatus = serializers.CharField(max_length=180)
+    
+class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
+    id = serializers.CharField(max_length=180)
+    DCVerificationStatus = serializers.CharField(max_length=180)
 
 # Change DC Status
 class DCStatusChangeSerializer(serializers.Serializer):

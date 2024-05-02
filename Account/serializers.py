@@ -41,11 +41,12 @@ def get_user_by_email(email):
 from django.conf import settings
 class UserLoginSerializer(serializers.Serializer):
     token = serializers.CharField(read_only=True)
+    role = serializers.IntegerField(read_only=True)
     email = serializers.EmailField(required=True)
     password = serializers.CharField(max_length=128, write_only=True, required=True)
 
     class Meta:
-        fields = ('email', 'password', 'access', 'refresh')
+        fields = ('email', 'password', 'role', 'token')
         
     def validate(self, data):
         email = data['email'].lower()
@@ -68,6 +69,7 @@ class UserLoginSerializer(serializers.Serializer):
         # Construct validated data
         validated_data = {
             'email': user['email'],
+            'role': user['role'],
             'token': token.decode('utf-8'),
         }
         return validated_data
