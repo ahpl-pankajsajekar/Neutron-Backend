@@ -192,7 +192,7 @@ class SearchDCAPIView(APIView):
             search_query_list = [int(i) if i.isdigit() else i for i in re.split(r',\s*|\s*,\s*|\s+', search_query_inputstring) ]
 
             # Clean and split Tests inpute
-            # search_tests_inputstring = [ int(d['item_value']) for d in search_tests_inputstring]
+            search_tests_inputstring = [ int(d['item_value']) for d in search_tests_inputstring]
             # if search_tests_inputstring:
                 # tests_required = search_tests_inputstring.replace(', ', ',').split(',')
                 # tests_required = re.split(r',\s*|\s*,\s*|\s+', search_tests_inputstring)
@@ -227,10 +227,10 @@ class SearchDCAPIView(APIView):
                 # regex_transformations = [re.compile(f'^{re.escape(transform)}$', re.IGNORECASE) for transform in tests_required]
                 # test_details_condition = {"AvailableTest": {"$elemMatch": { "$all": regex_transformations}} }
                 # Add condition for testDetails field
-                test_details_condition = {"AvailableTestCode": { "$all": search_tests_inputstring}}  # now search like  eg. [ { "item_value": "100001", "item_label": "2 D Echocardiography" } ]
-                # test_details_condition = {"AvailableTestCode": {
-                #         "$all": [{"$elemMatch": {"item_value": val}} for val in search_tests_inputstring]
-                #     }}   # test_details_condition = {'AvailableTestCode': {'$all': [{'$elemMatch': {'item_value': '100001'}}, {'$elemMatch': {'item_value': '100002'}}]}} and it return value. input comes in " search_tests_inputstring = ["100001", "100002"] "
+                # test_details_condition = {"AvailableTestCode": { "$all": search_tests_inputstring}}  # now search like  eg. [ { "item_value": "100001", "item_label": "2 D Echocardiography" } ]
+                test_details_condition = {"availableTests": {
+                        "$all": [{"$elemMatch": {"item_Standard_Code": val}} for val in search_tests_inputstring]
+                    }}   # test_details_condition = {'AvailableTestCode': {'$all': [{'$elemMatch': {'item_value': '100001'}}, {'$elemMatch': {'item_value': '100002'}}]}} and it return value. input comes in " search_tests_inputstring = ["100001", "100002"] "
                 query_conditions.append(test_details_condition)
 
             # Combine all conditions using the $and operator

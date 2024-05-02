@@ -1,6 +1,8 @@
 import pandas as pd
 
 # create dictionries in list ( Create a list of dictionaries )
+
+# url for formate data https://codebeautify.org/python-formatter-beautifier#
 def CreateDictsinList():
     df = pd.read_excel('C://Users/pankaj.sajekar/Desktop/Standard_Test_Names_Correct_Nomenclature_Loin_Code_Final_Submission.xlsx', sheet_name='Sheet1', usecols=['Standard_Description', 'Standard_Code', 'Alias', 'Type_of_Code', 'Final_Code', 'Description_of_Code', 'Correct_Nomenclature'] )
 

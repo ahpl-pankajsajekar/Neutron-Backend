@@ -7,7 +7,7 @@ from rest_framework import status
 
 def generate_jwt_token(email, name, role):
     # Set token expiration time (e.g., 1 hour)
-    expiration_time = datetime.now() + timedelta(minutes=1)
+    expiration_time = datetime.now() + timedelta(hours=1)
     
     # Set token issue time
     issue_time = datetime.now()
