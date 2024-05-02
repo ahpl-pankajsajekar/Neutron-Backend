@@ -70,7 +70,8 @@ class UserLoginSerializer(serializers.Serializer):
         validated_data = {
             'email': user['email'],
             'role': user['role'],
-            'token': token.decode('utf-8'),
+            # 'token': token.decode('utf-8'),
+            'token': token,
         }
         return validated_data
     

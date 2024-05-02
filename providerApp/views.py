@@ -13,7 +13,7 @@ import base64
 
 from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission
-from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer
+from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer
 from .models import neutron_collection, selfEmpanelment_collection
 
 from rest_framework.permissions import IsAuthenticated
@@ -457,12 +457,8 @@ class selfEmpanelmentDetailAPIView(APIView):
                         "Adhar_number" : document.get("Adhar_number", ""),
                         "Adhar_name" : document.get("Adhar_name", ""),
                         "Accredation" : document.get("Accredation", ""),
-                        # "pan_image": base64.b64encode(document['pan_image']).decode('utf-8'),
-                        # 'aadhar_image': base64.b64encode(document['pan_image']).decode('utf-8'),
-                        # 'Accreditation_image': base64.b64encode(document['Accreditation_image']).decode('utf-8'),
-                        # 'Registration_Number_image': base64.b64encode(document['Registration_Number_image']).decode('utf-8'),
-                        # 'Ownership_image': base64.b64encode(document['Ownership_image']).decode('utf-8'),
-                        # 'TDS_image': base64.b64encode(document['TDS_image']).decode('utf-8'),
+                        # "verifiedByNetworkUser": document.get("verifiedByNetworkUser", ""),
+                        # "DCVerificationStatus": document.get("DCVerificationStatus", ""),
                     }
             
             # Check if image fields exist before accessing
@@ -480,6 +476,54 @@ class selfEmpanelmentDetailAPIView(APIView):
                     # "data": json.loads(json_util.dumps(document)),
                     "message": "Document Found Successfully",
                     "serviceName": "EmpanelmentDetails_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_200_OK,
+                    }
+                return Response(response_data)
+            else:
+                return Response({'error': 'Document not found'}, status=404)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class selfEmpanelmentDetailForLegalAPIView(APIView):
+    def post(self, request):
+        try:
+            empanelmentID_query = request.data['id']
+            if empanelmentID_query is None:
+                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+            document = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query) })
+            _user = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})
+            providerData = {
+                        "providerName": document.get("providerName", ""),
+                        "PanCard_number" : document.get("PanCard_number", ""),
+                        "nameOnPanCard" : document.get("nameOnPanCard", ""),
+                        "Adhar_number" : document.get("Adhar_number", ""),
+                        "Adhar_name" : document.get("Adhar_name", ""),
+                        "Accredation" : document.get("Accredation", ""),
+                        "verifiedByNetworkUser": {"name": _user['name'], "email": _user['email']},  # give only id
+                        "DCVerificationStatus": document.get("DCVerificationStatus", ""),
+                    }
+            if "verifiedByNetworkDate" in document:
+                providerData['verifiedByNetworkDate'] = document['verifiedByNetworkDate']
+            
+            # Check if image fields exist before accessing
+            image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            for field in image_fields:
+                if field in document:
+                    providerData[field] = base64.b64encode(document[field]).decode('utf-8')
+                else:
+                    providerData[field] = "" 
+
+            if document:
+                response_data = {
+                    "status": "Successful",
+                    "data": providerData,
+                    # "data": json.loads(json_util.dumps(document)),
+                    "message": "Document Found Successfully",
+                    "serviceName": "selfEmpanelmentDetailForLegal_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
                     "code": status.HTTP_200_OK,
                     }
@@ -543,11 +587,56 @@ class SelfEmpanelmentSelect(APIView):
             filtered_data = {
                 "id": str(document["_id"]),  # Convert ObjectId to string if needed
                 "providerName": document["providerName"],
+                "DCID": document["DCID"],
             }
             if 'verifiedByNetworkUser' in document:
                 filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             providerData.append(filtered_data)
-        return Response(providerData)
+
+        response={
+            "selectDropdown": providerData,
+            "networkAnalyticsData": network_analytics
+        }
+        return Response(response)
+    
+class SelfEmpanelmentSelectForLegal(APIView):
+    permission_classes = [CustomIsAuthenticatedPermission]
+
+    def get(self, request):
+        _user = request.customMongoUser
+        if _user['role'] == 1:
+            filter_query_by_user = "DCVerificationStatus"
+        else:
+            filter_query_by_user = "DCVerificationStatusByLegal"
+
+        cursor = selfEmpanelment_collection.find({"DCVerificationStatus":"verify"})
+        total_selfEmpanelment = selfEmpanelment_collection.count_documents({"DCVerificationStatus":"verify"})
+        total_selfEmpanelment_verify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
+        total_selfEmpanelment_partialVerify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
+        network_analytics = {
+            "total" : total_selfEmpanelment,
+            "verify" : total_selfEmpanelment_verify,
+            "partialVerify" : total_selfEmpanelment_partialVerify,
+            "pending": total_selfEmpanelment - (total_selfEmpanelment_verify + total_selfEmpanelment_partialVerify)
+        }
+        providerData = []
+        for document in cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+            }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            providerData.append(filtered_data)
+
+        response={
+            "selectDropdown": providerData,
+            "networkAnalyticsData": network_analytics
+        }
+        return Response(response)
+
 
 class SelfEmpanelmentVerificationAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -567,6 +656,7 @@ class SelfEmpanelmentVerificationAPIView(APIView):
             # removes id data
             del form_data['id']
             form_data['verifiedByNetworkUser'] = _user['_id']
+            form_data['verifiedByNetworkDate'] = datetime.datetime.now()
             data = {
                 "verificationRemark" : form_data['verificationRemark'],
                 "DCVerificationStatus" : form_data['DCVerificationStatus'],
@@ -609,7 +699,7 @@ class SelfEmpanelmentVerificationByLegalAPIView(APIView):
         _user = request.customMongoUser
         form_data=request.data
         try: 
-            serializer = SelfEmpanelmentVerificationSerializer(data=form_data)
+            serializer = SelfEmpanelmentVerificationbyLegalSerializer(data=form_data)
             if serializer.is_valid():
                 serializer_data = serializer.data
             else:
@@ -621,17 +711,13 @@ class SelfEmpanelmentVerificationByLegalAPIView(APIView):
             getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
             # removes id data
             form_data['verifiedByLegalUser'] = _user['_id']
+            form_data['verifiedByLegalDate'] = datetime.datetime.now()
             del form_data['id']
-            print("form_data", form_data)
-            data = {
-                "verificationRemark" : form_data['verificationRemark'],
-                "DCVerificationStatus" : form_data['DCVerificationStatus'],
-                "isPanVerify": form_data['isPanVerify'],
-            }    
+            print("form_data", form_data)   
             # update data in existing documents                            
             selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': form_data} )
             ticket_id = getDocuments['TicketID']
-            if form_data['DCVerificationStatus'] == 'verify':
+            if form_data['DCVerificationStatusByLegal'] == 'verify':
                 # verify
                 # 50 Forwarded to legal after QC1
 	            # 51 Document verified by legal
