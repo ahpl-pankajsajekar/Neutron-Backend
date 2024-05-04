@@ -11,10 +11,17 @@ class CustomIsAuthenticatedPermission(BasePermission):
             return False
 
 
-# Network User not test
+# Network User
 class IsNetworkUserPermission(BasePermission):
     def has_permission(self, request, view):
-        if request.customMongoUser is None:
-            return False
-        if request.customMongoUser.get('IsActive') and request.customMongoUser.get('role'):
-            return True
+        if request.customMongoUser.get('IsActive') and request.customMongoUser.get('role') == '1':
+            return super().has_permission(request, view)
+        return False
+
+
+# legal user
+class IsLegalUserPermission(BasePermission):
+    def has_permission(self, request, view):
+        if request.customMongoUser.get('IsActive') and request.customMongoUser.get('role') == '2':
+            return super().has_permission(request, view)
+        return False

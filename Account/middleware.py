@@ -20,6 +20,7 @@ class CustomJWTAuthenticationMiddleware(MiddlewareMixin):
                 user = get_user_by_email(email)
                 if user:
                     request.customMongoUser = user
+                    # print("User -> ", user)
                 else:
                     request.customMongoUser = None
             except jwt.ExpiredSignatureError:

@@ -12,7 +12,7 @@ import requests  # type: ignore
 import base64
 
 from Account.models import UserMasterCollection
-from Account.permissions import CustomIsAuthenticatedPermission
+from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPermission, IsNetworkUserPermission
 from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer
 from .models import neutron_collection, selfEmpanelment_collection
 
@@ -457,8 +457,6 @@ class selfEmpanelmentDetailAPIView(APIView):
                         "Adhar_number" : document.get("Adhar_number", ""),
                         "Adhar_name" : document.get("Adhar_name", ""),
                         "Accredation" : document.get("Accredation", ""),
-                        # "verifiedByNetworkUser": document.get("verifiedByNetworkUser", ""),
-                        # "DCVerificationStatus": document.get("DCVerificationStatus", ""),
                     }
             
             # Check if image fields exist before accessing
@@ -562,24 +560,77 @@ class EmpanelmentDeleteAPIView(APIView):
 
 # for network team role 1
 class SelfEmpanelmentSelect(APIView):
-    permission_classes = [CustomIsAuthenticatedPermission]
+    permission_classes = [CustomIsAuthenticatedPermission, IsNetworkUserPermission]
 
     def get(self, request):
         _user = request.customMongoUser
-        if _user['role'] == 1:
-            filter_query_by_user = "DCVerificationStatus"
-        else:
-            filter_query_by_user = "DCVerificationStatusByLegal"
+        # if _user['role'] == 1:
+        
+        filter_query_by_user = "DCVerificationStatus"
 
         cursor = selfEmpanelment_collection.find()
-        total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
-        total_selfEmpanelment_verify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
-        total_selfEmpanelment_partialVerify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
+        # total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
+        total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending" })
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
+        total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
+        
+        total_selfEmpanelment_pending_list = []
+        for document in total_selfEmpanelment_pending_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            total_selfEmpanelment_pending_list.append(filtered_data)
+        total_selfEmpanelment_verify_list = []
+        for document in total_selfEmpanelment_verify_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            total_selfEmpanelment_verify_list.append(filtered_data)
+        total_selfEmpanelment_partialVerify_list = []
+        for document in total_selfEmpanelment_partialVerify_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            total_selfEmpanelment_partialVerify_list.append(filtered_data)
+
         network_analytics = {
-            "total" : total_selfEmpanelment,
-            "verify" : total_selfEmpanelment_verify,
-            "partialVerify" : total_selfEmpanelment_partialVerify,
-            "pending": total_selfEmpanelment - (total_selfEmpanelment_verify + total_selfEmpanelment_partialVerify)
+            # "total" : total_selfEmpanelment,
+            "pending" : total_selfEmpanelment_pending_list,
+            "verify" : total_selfEmpanelment_verify_list,
+            "partialVerify": total_selfEmpanelment_partialVerify_list, 
         }
         providerData = []
         for document in cursor:
@@ -599,25 +650,93 @@ class SelfEmpanelmentSelect(APIView):
         }
         return Response(response)
     
+# 
 class SelfEmpanelmentSelectForLegal(APIView):
-    permission_classes = [CustomIsAuthenticatedPermission]
+    permission_classes = [CustomIsAuthenticatedPermission, IsLegalUserPermission]
 
     def get(self, request):
         _user = request.customMongoUser
-        if _user['role'] == 1:
-            filter_query_by_user = "DCVerificationStatus"
-        else:
-            filter_query_by_user = "DCVerificationStatusByLegal"
+        # if _user['role'] == 1:
+        #     filter_query_by_user = "DCVerificationStatus"
+        # else:
+        #     filter_query_by_user = "DCVerificationStatusByLegal"
 
-        cursor = selfEmpanelment_collection.find({"DCVerificationStatus":"verify"})
-        total_selfEmpanelment = selfEmpanelment_collection.count_documents({"DCVerificationStatus":"verify"})
-        total_selfEmpanelment_verify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
-        total_selfEmpanelment_partialVerify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
+        filter_query_by_user = "DCVerificationStatusByLegal"
+
+        cursor = selfEmpanelment_collection.find()
+        # total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
+        total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending", "DCVerificationStatus": "verify" })
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "DCVerificationStatus": "verify"  })
+        total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify", "DCVerificationStatus": "verify"  })
+        
+        total_selfEmpanelment_pending_list = []
+        for document in total_selfEmpanelment_pending_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            total_selfEmpanelment_pending_list.append(filtered_data)
+        total_selfEmpanelment_verify_list = []
+        for document in total_selfEmpanelment_verify_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            
+            if 'verifiedByLegalDate' in document:
+                filtered_data["verifiedByLegalDate"] = document['verifiedByLegalDate']
+            if 'verifiedByLegalUser' in document:
+                filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            total_selfEmpanelment_verify_list.append(filtered_data)
+        total_selfEmpanelment_partialVerify_list = []
+        for document in total_selfEmpanelment_partialVerify_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'verifiedByLegalDate' in document:
+                filtered_data["verifiedByLegalDate"] = document['verifiedByLegalDate']
+            if 'verifiedByLegalUser' in document:
+                filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
+            
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            total_selfEmpanelment_partialVerify_list.append(filtered_data)
+
         network_analytics = {
-            "total" : total_selfEmpanelment,
-            "verify" : total_selfEmpanelment_verify,
-            "partialVerify" : total_selfEmpanelment_partialVerify,
-            "pending": total_selfEmpanelment - (total_selfEmpanelment_verify + total_selfEmpanelment_partialVerify)
+            # "total" : total_selfEmpanelment,
+            "pending" : total_selfEmpanelment_pending_list,
+            "verify" : total_selfEmpanelment_verify_list,
+            "partialVerify": total_selfEmpanelment_partialVerify_list, 
         }
         providerData = []
         for document in cursor:
@@ -709,7 +828,6 @@ class SelfEmpanelmentVerificationByLegalAPIView(APIView):
             
             # get data
             getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
-            # removes id data
             form_data['verifiedByLegalUser'] = _user['_id']
             form_data['verifiedByLegalDate'] = datetime.datetime.now()
             del form_data['id']
@@ -969,6 +1087,10 @@ class SelfEmpanelmentCreateAPIView(APIView):
                     pass
                     # data[field] = None
             
+            data['DCVerificationStatus'] = 'pending'
+            data['DCVerificationStatusByLegal'] = 'pending'
+            data["created_at"] = datetime.datetime.now()
+            data["updated_at"] = datetime.datetime.now()
             # Create data in MongoDB
             result = selfEmpanelment_collection.insert_one(data)
             # change status in freshdesk
