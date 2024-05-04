@@ -560,7 +560,7 @@ class EmpanelmentDeleteAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
  
 
-
+# for network team role 1
 class SelfEmpanelmentSelect(APIView):
     permission_classes = [CustomIsAuthenticatedPermission]
 
@@ -572,7 +572,7 @@ class SelfEmpanelmentSelect(APIView):
             filter_query_by_user = "DCVerificationStatusByLegal"
 
         cursor = selfEmpanelment_collection.find()
-        total_selfEmpanelment = selfEmpanelment_collection.count_documents({})
+        total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
         total_selfEmpanelment_verify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
         total_selfEmpanelment_partialVerify = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
         network_analytics = {

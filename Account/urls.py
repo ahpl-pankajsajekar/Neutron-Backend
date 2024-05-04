@@ -11,6 +11,15 @@ urlpatterns = [
     ## change password User
     path('updatepassword/', views.ChangePasswordAPIView.as_view(), name='changepassword'),
 
+    # Get user
+    path('getuser/', views.GetUserAPIView.as_view(), name='GetUser'),
+    # update by user
+    path('user/update/', views.UpdateUserAPIView.as_view(), name='UpdateUser'),
+
+
+    # temp
+    path('envelop/', views.CreateEnvelopeView.as_view(), name='CreateEnvelopeView'),
+
     # Forgot Password
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
     # Tocken

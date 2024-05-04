@@ -12,11 +12,19 @@ UserRole_CHOICES =(
     (2, "Legal"),  
     (3, "IT"),  
 ) 
+zone_choice =(  
+    ('North', "North"),  
+    ('South', "South"),  
+    ('East', "East"),  
+    ('West', "West"),  
+    ('All', "All"),  
+) 
 class UserRegistrationSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=150)
     role = serializers.ChoiceField(choices=UserRole_CHOICES, required=True)
     email = serializers.EmailField(required=True)
     phone = serializers.IntegerField()
+    zone = serializers.ChoiceField(choices=zone_choice, required=True)
     password = serializers.CharField(max_length=15, write_only=True, min_length=6)
     password2 = serializers.CharField(max_length=15, write_only=True, min_length=6)
 
@@ -33,6 +41,10 @@ class UserRegistrationSerializer(serializers.Serializer):
         if phone_len != 10:
             raise serializers.ValidationError('Enter Valid Phone Number.')
         return attrs
+
+# admin verification
+class AdminVerifyOnUserRegistrationSerializer(serializers.Serializer):
+    pass
 
 
 def get_user_by_email(email):
@@ -58,6 +70,8 @@ class UserLoginSerializer(serializers.Serializer):
         if user_obj and check_password(password, user_obj['password']):
             user = user_obj
             # user = json.loads(json_util.dumps(user_obj))
+            if not user['IsActive']:
+                raise serializers.ValidationError("Please Wait For Admin Verification.")
         else:
             raise serializers.ValidationError("Invalid login credentials or you are not registered")
         

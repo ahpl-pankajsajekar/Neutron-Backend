@@ -9,8 +9,8 @@ urlpatterns = [
     path('empanelment/delete/', views.EmpanelmentDeleteAPIView.as_view()),
 
     # Dc verify
-    path('selfemp/select/', views.SelfEmpanelmentSelect.as_view()),
-    path('selfemp/select/legal/', views.SelfEmpanelmentSelectForLegal.as_view()),
+    path('selfemp/select/', views.SelfEmpanelmentSelect.as_view()), # network team
+    path('selfemp/select/legal/', views.SelfEmpanelmentSelectForLegal.as_view()),  # legal team
     path('selfemp/verification/', views.SelfEmpanelmentVerificationAPIView.as_view()),
     path('selfemp/verification/legal/', views.SelfEmpanelmentVerificationByLegalAPIView.as_view()),
     # gives documents data [POST]
