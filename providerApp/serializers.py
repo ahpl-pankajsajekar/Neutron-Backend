@@ -1,4 +1,5 @@
 from rest_framework import serializers
+import base64
 
 class DCSerializer(serializers.Serializer):
     pass
@@ -25,3 +26,27 @@ class SelfEmpanelmentVerificationbyLegalSerializer(serializers.Serializer):
 # Change DC Status
 class DCStatusChangeSerializer(serializers.Serializer):
     DCStatus = serializers.CharField(max_length=250)
+
+
+# send for docusign 
+class docusignAgreementFileSerializer(serializers.Serializer):
+    agreement_file = serializers.FileField(required=True)
+
+    def validate(self, instance):
+        data = super().to_representation(instance)
+        # Read the file content
+        file_content = instance['agreement_file'].read()
+
+        # Convert file content to base64
+        base64_content = base64.b64encode(file_content).decode('utf-8')
+        file_extension = instance['agreement_file'].name.split('.')[-1]
+        file_name = instance['agreement_file'].name
+        file_size = instance['agreement_file'].size
+
+        # Add base64 content, file extension, file name, and file size to the representation
+        data['base64_content'] = base64_content
+        data['file_extension'] = file_extension
+        data['file_name'] = file_name
+        data['file_size'] = file_size
+
+        return data

@@ -246,8 +246,11 @@ import requests
 from django.conf import settings
 from django.http import HttpResponseBadRequest
 
+from docusign.ds_config import PRIVATE_KEY
 
-DOCSIGN_PRIVATE_KEY = """
+DOCSIGN_PRIVATE_KEY = PRIVATE_KEY
+
+DOCSIGN_PRIVATE_KEY1 = """
 -----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAtJHA4pZnSDb1jIf8bUyqdin+P92YJGqgOJzhr8u9l2m80EmA
 ZDTz2Io+8pRaac3bT6AWTqefrPta3SDgsJGuJ4UymsuMzXDFIoDlRkj53xp1eKXu

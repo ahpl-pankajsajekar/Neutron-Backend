@@ -38,4 +38,7 @@ urlpatterns = [
     # Change Dc Status
     path('dcstatus/', views.DCStatusChangeAPIView.as_view()),
 
+    # Docusign Agreement
+    path('docusignAgreement/', views.docusignAgreementFileAPIView.as_view()),
+
 ]

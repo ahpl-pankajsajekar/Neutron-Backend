@@ -13,7 +13,9 @@ import base64
 
 from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPermission, IsNetworkUserPermission
-from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer
+from docusign.ds_jwt_auth import docusign_JWT_Auth
+from docusign.envelope import docusign_create_and_send_envelope, docusign_get_envelope_status
+from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, docusignAgreementFileSerializer
 from .models import neutron_collection, selfEmpanelment_collection
 
 from rest_framework.permissions import IsAuthenticated
@@ -1146,3 +1148,79 @@ class DCStatusChangeAPIView(APIView):
                 return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+class docusignAgreementFileAPIView(APIView):
+    def post(self, request):
+        empanelmentID = request.data['id']
+        if empanelmentID:
+            empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})    
+            dc_email = empanelment_docu['emailId']
+            dc_name = empanelment_docu['providerName']
+            dc_DCID = empanelment_docu['DCID']
+        serializer = docusignAgreementFileSerializer(data=request.data)
+
+        if serializer.is_valid():
+            BASE64_ENCODED_DOCUMENT_CONTENT = serializer.validated_data['base64_content']
+            documentExtension = serializer.validated_data['file_extension']
+            documentName = serializer.validated_data['file_name']
+     
+        args = {
+            'emailSubject' : 'Please Sign on document',
+            'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT,
+            'documentName' : documentName,
+            'documentExtension' : documentExtension,
+            'dc_signer_email' : 'navnit.bhoir@alineahealthcare.in',
+            'dc_signer_name' : 'Navnit bhoir',
+            # 'dc_signer_email' : dc_email,
+            # 'dc_signer_name' : dc_name,
+            'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            'authority_signer_name' : 'Pankaj sajekar',
+            'status' : 'sent',
+        }
+
+        # goes for access token (JWT Auth)
+        token = docusign_JWT_Auth()
+        if not token:
+            return Response({"status": "error", "message": "Failed to obtain access token from DocuSign."}, status=status.HTTP_403_FORBIDDEN)
+        
+        access_token = token.get('access_token')
+
+        # send for envelope
+        envelope_res = docusign_create_and_send_envelope(args, access_token)
+        response_data = {
+                    "status": "Successful",
+                    "data": envelope_res,
+                    "message": envelope_res['envelope_id'],
+                    "serviceName": "docusignAgreementFile_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_200_OK,
+                }
+        
+        # ticketStatusUpdate(dc_DCID, 49)
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+
+def getstatus():
+    token = docusign_JWT_Auth()
+    status = docusign_get_envelope_status(token.get('access_token'), "ae1ee36b-c613-4362-9f1e-ca8aa285d439")
+
+    empanelmentID = ''
+    if empanelmentID:
+        empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})    
+        dc_DCID = empanelment_docu['dc_DCID']
+        if status == 'completed':
+            ticketStatusUpdate(dc_DCID, 49)
+
+# getstatus()
+
+class docusignCheckStatusAPIView(APIView):
+    def get(self, request):
+        serializer_data = {
+            "status": "Success",
+            "message": "",
+            "serviceName": "docusignCheckStatusAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_200_OK,
+        }
+        return Response(serializer_data, status=status.HTTP_200_OK)
