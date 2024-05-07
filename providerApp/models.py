@@ -6,6 +6,7 @@ from db_connection import db
 
 neutron_collection = db['Neutron']
 selfEmpanelment_collection = db['SelfEmpanelment']
+testName_collection = db['TestName']
 
 
 db['SelfEmpanelment'].create_index({"DCID": 1}, unique = True )

@@ -61,7 +61,8 @@ class UserRegistrationAPIView(APIView):
             user_data['password'] = make_password(user_data['password'])
             user_data["created_at"] = datetime.datetime.now()
             user_data["updated_at"] = datetime.datetime.now()
-            user_data["IsActive"] = False
+            # if apply admin then Do false
+            user_data["IsActive"] = True
 
             # Create data in MongoDB
             result = UserMasterCollection.insert_one(user_data)

@@ -8,7 +8,9 @@ urlpatterns = [
     path('empanelment/add/', views.EmpanelmentCreateAPIView.as_view()),
     path('empanelment/delete/', views.EmpanelmentDeleteAPIView.as_view()),
 
-    # Dc verify
+    # Verified selfEmpanelment select
+    path('selfemp/select/docusign/', views.SelfEmpanelmentSelectForDocusign.as_view()), # legal team get only verified selfEmp
+
     path('selfemp/select/', views.SelfEmpanelmentSelect.as_view()), # network team
     path('selfemp/select/legal/', views.SelfEmpanelmentSelectForLegal.as_view()),  # legal team
     path('selfemp/verification/', views.SelfEmpanelmentVerificationAPIView.as_view()),
@@ -34,11 +36,13 @@ urlpatterns = [
     path('selfempanelments/', views.SelfEmpanelmentList.as_view()),
     path('selfempanelment/', views.SelfEmpanelmentAPIView.as_view()),
     path('selfempanelment/update/', views.SelfEmpanelmentUpdateAPIView.as_view()),
-
+    
     # Change Dc Status
     path('dcstatus/', views.DCStatusChangeAPIView.as_view()),
 
     # Docusign Agreement
     path('docusignAgreement/', views.docusignAgreementFileAPIView.as_view()),
+    # Docusign Agreement check status
+    path('docusignAgreement/envelope/checkstatus/', views.docusignCheckStatusAPIView.as_view()),
 
 ]

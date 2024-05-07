@@ -44,7 +44,7 @@ def docusign_create_and_send_envelope(args, DOCUSIGN_ACCESS_TOKEN):
     # Handle the response
     if response.status_code == 201:
         envelope_id = response.json()["envelopeId"]
-        return {"message": "Envelope created and sent successfully", "envelope_id": envelope_id}
+        return {"message": "Envelope created and sent successfully", "envelopeData": response.json()}
     else:
         return {"error": "Failed to create and send envelope"}
 
@@ -63,7 +63,29 @@ def docusign_get_envelope_status(DOCUSIGN_ACCESS_TOKEN, envelope_id):
     # Handle the response
     if response.status_code == 200:
         envelope_status = response.json()["status"]
-        return {"envelope_id": envelope_id, "status": envelope_status}
+        return {"status": envelope_status}
     else:
         return {"error": "Failed to retrieve envelope status"}
 
+
+# download completed envelope
+def docusign_get_Envelope_Documents(DOCUSIGN_ACCESS_TOKEN, envelope_id):
+    
+    # Send GET request to retrieve envelope status
+    documentId = "combined"
+    api_url = "{}/v2/accounts/{}/envelopes/{}/documents/{}".format(DOCUSIGN_ACCOUNT_BASE_URL, DOCUSIGN_ACCOUNT_ID, envelope_id, documentId)
+    headers = {
+        "Authorization": f"Bearer {DOCUSIGN_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    response = requests.get(api_url, headers=headers)
+
+    # Handle the response
+    if response.status_code == 200:
+        print("docusign_get_Envelope_Documents", response)
+        return response
+        # envelope_status = response.json()
+        # return {"envelope_id": envelope_id, "status": envelope_status}
+    else:
+        return {"error": "Failed to retrieve envelope status"}
+    

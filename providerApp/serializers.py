@@ -31,6 +31,7 @@ class DCStatusChangeSerializer(serializers.Serializer):
 # send for docusign 
 class docusignAgreementFileSerializer(serializers.Serializer):
     agreement_file = serializers.FileField(required=True)
+    id = serializers.CharField(max_length=50, required=True)  # self empanelment ID
 
     def validate(self, instance):
         data = super().to_representation(instance)

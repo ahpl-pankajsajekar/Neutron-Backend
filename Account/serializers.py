@@ -13,10 +13,10 @@ UserRole_CHOICES =(
     (3, "IT"),  
 ) 
 zone_choice =(  
-    ('North', "North"),  
-    ('South', "South"),  
-    ('East', "East"),  
-    ('West', "West"),  
+    ('NorthZone', "NorthZone"),  
+    ('SouthZone', "SouthZone"),  
+    ('EastZone', "EastZone"),  
+    ('WestZone', "WestZone"),  
     ('All', "All"),  
 ) 
 class UserRegistrationSerializer(serializers.Serializer):

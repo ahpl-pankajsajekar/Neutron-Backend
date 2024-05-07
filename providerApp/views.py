@@ -14,9 +14,9 @@ import base64
 from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPermission, IsNetworkUserPermission
 from docusign.ds_jwt_auth import docusign_JWT_Auth
-from docusign.envelope import docusign_create_and_send_envelope, docusign_get_envelope_status
+from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
 from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, docusignAgreementFileSerializer
-from .models import neutron_collection, selfEmpanelment_collection
+from .models import neutron_collection, selfEmpanelment_collection, testName_collection
 
 from rest_framework.permissions import IsAuthenticated
 from pymongo.errors import DuplicateKeyError
@@ -36,7 +36,8 @@ def MongodbCRUD():
     }
 
     try:
-        result = neutron_collection.update_many(filter, queary )
+        result = testName_collection.insert_many(dictsinListData)
+        # result = neutron_collection.update_many(filter, queary )
         print(result)
         return result
     except Exception:
@@ -101,6 +102,40 @@ def ticketStatusUpdate(ticket_id, ticket_status_code):
     print(response_data)
     return(response_data)
 # ticketStatusUpdate(584387, 49)
+
+# view Ticket 
+def ViewTicketFunction(ticket_id):
+    try:
+        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {auth_encoded}'
+        }
+        response = requests.get(url, headers=headers)
+        res = response.json()
+        print(response.json())
+        if response.status_code == 200:
+           return response.json()
+        else:
+            response_data = {
+                "status":  res['code'],
+                "message":  res['message'],
+                "serviceName": "ticketStatusUpdate_Function",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": response.status_code,
+            }
+        # return Response(response_data)
+    except requests.exceptions.RequestException as e:
+        print("Error making request:", e)
+        response_data = {
+            "status": "Failed",
+            "message": e,
+            "serviceName": "ViewTicket_Function",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+        }
+    return(response_data)
+# ViewTicketFunction(584387)
 
 
 class home(APIView):
@@ -665,10 +700,10 @@ class SelfEmpanelmentSelectForLegal(APIView):
 
         filter_query_by_user = "DCVerificationStatusByLegal"
 
-        cursor = selfEmpanelment_collection.find()
+        cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, "DCVerificationStatus": "verify"})
         # total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
         total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending", "DCVerificationStatus": "verify" })
-        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "DCVerificationStatus": "verify"  })
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "DCVerificationStatus": "verify" })
         total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify", "DCVerificationStatus": "verify"  })
         
         total_selfEmpanelment_pending_list = []
@@ -710,6 +745,12 @@ class SelfEmpanelmentSelectForLegal(APIView):
                 filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
             if 'updated_at' in document:
                 filtered_data["updated_at"] = document['updated_at']
+
+            if 'ds_envelope_status' in document:
+                filtered_data["ds_envelope_status"] = document['ds_envelope_status']
+            if 'ds_envelope_envelopeId' in document:
+                filtered_data["ds_envelope_envelopeId"] = document['ds_envelope_envelopeId']
+
             total_selfEmpanelment_verify_list.append(filtered_data)
         total_selfEmpanelment_partialVerify_list = []
         for document in total_selfEmpanelment_partialVerify_cursor:
@@ -755,6 +796,51 @@ class SelfEmpanelmentSelectForLegal(APIView):
         response={
             "selectDropdown": providerData,
             "networkAnalyticsData": network_analytics
+        }
+        return Response(response)
+    
+
+#  list self empanelment in docusign after legal verifed
+class SelfEmpanelmentSelectForDocusign(APIView):
+    permission_classes = [CustomIsAuthenticatedPermission, IsLegalUserPermission]
+
+    def get(self, request):
+        _user = request.customMongoUser
+        # if _user['role'] == 1:
+        #     filter_query_by_user = "DCVerificationStatus"
+        # else:
+        #     filter_query_by_user = "DCVerificationStatusByLegal"
+
+        # after legal verified (field name)
+        filter_query_by_user = "DCVerificationStatusByLegal"
+
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, "DCVerificationStatusByLegal": "verify", "DCVerificationStatus": "verify"  })
+        
+        total_selfEmpanelment_verify_list = []
+        for document in total_selfEmpanelment_verify_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'verifiedByLegalDate' in document:
+                filtered_data["verifiedByLegalDate"] = document['verifiedByLegalDate']
+            if 'verifiedByLegalUser' in document:
+                filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            total_selfEmpanelment_verify_list.append(filtered_data)
+        
+        response={
+            "selectDropdown": total_selfEmpanelment_verify_list,
         }
         return Response(response)
 
@@ -990,6 +1076,9 @@ class SelfEmpanelmentCreateAPIView(APIView):
         if ticketId_from_url == None:
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            ticketDetails = ViewTicketFunction(ticketId_from_url)
+            dc_zone_from_ticket = ticketDetails['custom_fields']['cf_select_your_zone']
+            print("---------dc_zone", dc_zone_from_ticket)
             form_data=request.data
             # Get data from request
             serializer = SelfEmpanelmentSerializer(data=form_data)
@@ -1009,18 +1098,13 @@ class SelfEmpanelmentCreateAPIView(APIView):
             Adhar_number = form_data.get('Adhar_number')
             Adhar_name = form_data.get('Adhar_name')
             Center_name = form_data.get('Center_name')
-            Grade = form_data.get('Grade')
-            Tier = form_data.get('Tier')
             Accredation = form_data.get('Accredation')
             Station = form_data.get('Station')
             address1 = form_data.get('address1')
             address2 = form_data.get('address2')
-            ahplLocation = form_data.get('ahplLocation')
-            lcLocation = form_data.get('lcLocation')
             state = form_data.get('state')
             city = form_data.get('city')
             pincode = form_data.get('pincode')
-            zone = form_data.get('zone')
             emailId = form_data.get('emailId')
             emailId2 = form_data.get('emailId2')
             Cantact_person1 = form_data.get('Cantact_person1')
@@ -1051,18 +1135,14 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'Adhar_number': Adhar_number,
                 'Adhar_name': Adhar_name,
                 'Center_name': Center_name,
-                'Grade': Grade,
-                'Tier': Tier,
                 'Accredation': Accredation,
                 'Station': Station,
                 'address1': address1,
                 'address2': address2,
-                'ahplLocation': ahplLocation,
-                'lcLocation': lcLocation,
                 'state': state,
                 'city': city,
                 'pincode': pincode,
-                'zone': zone,
+                'zone': dc_zone_from_ticket,  # set zone from ticket
                 'emailId': emailId,
                 'emailId2': emailId2,
                 'Cantact_person1': Cantact_person1,
@@ -1095,7 +1175,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
             data["updated_at"] = datetime.datetime.now()
             # Create data in MongoDB
             result = selfEmpanelment_collection.insert_one(data)
-            # change status in freshdesk
+            # change the status in freshdesk
             # 49 = submited to DC
             ticketStatusUpdate(ticketId_from_url, 49)
             response_data = {
@@ -1175,7 +1255,7 @@ class docusignAgreementFileAPIView(APIView):
             # 'dc_signer_email' : dc_email,
             # 'dc_signer_name' : dc_name,
             'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
-            'authority_signer_name' : 'Pankaj sajekar',
+            'authority_signer_name' : 'Pankaj Sajekar',
             'status' : 'sent',
         }
 
@@ -1188,39 +1268,66 @@ class docusignAgreementFileAPIView(APIView):
 
         # send for envelope
         envelope_res = docusign_create_and_send_envelope(args, access_token)
-        response_data = {
-                    "status": "Successful",
-                    "data": envelope_res,
-                    "message": envelope_res['envelope_id'],
-                    "serviceName": "docusignAgreementFile_Service",
-                    "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_200_OK,
-                }
+
+        update_data = {
+            "ds_envelope_status": envelope_res['envelopeData']['status'],
+            "ds_envelope_envelopeId": envelope_res['envelopeData']['envelopeId'],
+            "ds_envelope_statusDateTime": envelope_res['envelopeData']['statusDateTime'],
+            "ds_envelope_uri": envelope_res['envelopeData']['uri'],
+        }
+        empanelment_docu_result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
+        
+        if empanelment_docu_result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "data": envelope_res['envelopeData'],
+                        "message": "",
+                        "serviceName": "docusignAgreementFile_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data, status=status.HTTP_200_OK)
         
         # ticketStatusUpdate(dc_DCID, 49)
         return Response(response_data, status=status.HTTP_200_OK)
         
 
-def getstatus():
-    token = docusign_JWT_Auth()
-    status = docusign_get_envelope_status(token.get('access_token'), "ae1ee36b-c613-4362-9f1e-ca8aa285d439")
-
-    empanelmentID = ''
-    if empanelmentID:
-        empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})    
-        dc_DCID = empanelment_docu['dc_DCID']
-        if status == 'completed':
-            ticketStatusUpdate(dc_DCID, 49)
-
-# getstatus()
 
 class docusignCheckStatusAPIView(APIView):
     def get(self, request):
+        empanelmentID = request.query_params.get('id')
+        if empanelmentID:
+            # get document
+            empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})
+            dc_TicketID = empanelment_docu['TicketID']
+            ds_envelope_envelopeId = empanelment_docu['ds_envelope_envelopeId']
+            
+            token = docusign_JWT_Auth()
+            envelopeStatusRes = docusign_get_envelope_status(token.get('access_token'), ds_envelope_envelopeId)
+            # get_envelope_res = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
+            # print(get_envelope_res)
+            if envelopeStatusRes['status'] == 'completed':
+                # upadate status closed
+                ticketStatusUpdate(dc_TicketID, 5)
+            
+            # update document
+            update_data = {
+                "ds_envelope_status": envelopeStatusRes['status'],
+            }
+            empanelment_docu = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
+
+        
         serializer_data = {
             "status": "Success",
-            "message": "",
+            "data": {
+                "envelopeId":ds_envelope_envelopeId,
+                "status":envelopeStatusRes['status'],
+            },
+            "message": "checkStatus",
             "serviceName": "docusignCheckStatusAPIView_Service",
             "timeStamp": datetime.datetime.now().isoformat(),
             "code": status.HTTP_200_OK,
         }
         return Response(serializer_data, status=status.HTTP_200_OK)
+    
+
