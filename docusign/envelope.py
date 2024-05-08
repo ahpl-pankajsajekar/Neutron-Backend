@@ -78,14 +78,11 @@ def docusign_get_Envelope_Documents(DOCUSIGN_ACCESS_TOKEN, envelope_id):
         "Authorization": f"Bearer {DOCUSIGN_ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
-    response = requests.get(api_url, headers=headers)
+    response = requests.get(api_url, headers=headers, verify=False)
 
     # Handle the response
     if response.status_code == 200:
-        print("docusign_get_Envelope_Documents", response)
-        return response
-        # envelope_status = response.json()
-        # return {"envelope_id": envelope_id, "status": envelope_status}
+        return response.content
     else:
-        return {"error": "Failed to retrieve envelope status"}
+        return None
     

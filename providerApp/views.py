@@ -489,6 +489,7 @@ class selfEmpanelmentDetailAPIView(APIView):
 
             providerData = {
                         "providerName": document.get("providerName", ""),
+                        "FirmType": document.get("FirmType", ""),
                         "PanCard_number" : document.get("PanCard_number", ""),
                         "nameOnPanCard" : document.get("nameOnPanCard", ""),
                         "Adhar_number" : document.get("Adhar_number", ""),
@@ -497,7 +498,8 @@ class selfEmpanelmentDetailAPIView(APIView):
                     }
             
             # Check if image fields exist before accessing
-            image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            # image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
             for field in image_fields:
                 if field in document:
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
@@ -533,6 +535,7 @@ class selfEmpanelmentDetailForLegalAPIView(APIView):
             _user = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})
             providerData = {
                         "providerName": document.get("providerName", ""),
+                        "FirmType": document.get("FirmType", ""),
                         "PanCard_number" : document.get("PanCard_number", ""),
                         "nameOnPanCard" : document.get("nameOnPanCard", ""),
                         "Adhar_number" : document.get("Adhar_number", ""),
@@ -601,15 +604,15 @@ class SelfEmpanelmentSelect(APIView):
 
     def get(self, request):
         _user = request.customMongoUser
-        # if _user['role'] == 1:
+        user_zone  = _user['zone']
         
         filter_query_by_user = "DCVerificationStatus"
 
-        cursor = selfEmpanelment_collection.find()
+        cursor = selfEmpanelment_collection.find({"zone": user_zone})
         # total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
-        total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending" })
-        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify" })
-        total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify" })
+        total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending", "zone": user_zone })
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "zone": user_zone })
+        total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify", "zone": user_zone })
         
         total_selfEmpanelment_pending_list = []
         for document in total_selfEmpanelment_pending_cursor:
@@ -693,6 +696,7 @@ class SelfEmpanelmentSelectForLegal(APIView):
 
     def get(self, request):
         _user = request.customMongoUser
+        user_zone =  _user['zone'] 
         # if _user['role'] == 1:
         #     filter_query_by_user = "DCVerificationStatus"
         # else:
@@ -700,11 +704,11 @@ class SelfEmpanelmentSelectForLegal(APIView):
 
         filter_query_by_user = "DCVerificationStatusByLegal"
 
-        cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, "DCVerificationStatus": "verify"})
+        cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, "DCVerificationStatus": "verify",})
         # total_selfEmpanelment = selfEmpanelment_collection.count_documents({filter_query_by_user: { '$exists': True}})
-        total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending", "DCVerificationStatus": "verify" })
-        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "DCVerificationStatus": "verify" })
-        total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify", "DCVerificationStatus": "verify"  })
+        total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending", "DCVerificationStatus": "verify", })
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "DCVerificationStatus": "verify", })
+        total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify", "DCVerificationStatus": "verify",  })
         
         total_selfEmpanelment_pending_list = []
         for document in total_selfEmpanelment_pending_cursor:
@@ -806,6 +810,7 @@ class SelfEmpanelmentSelectForDocusign(APIView):
 
     def get(self, request):
         _user = request.customMongoUser
+        user_zone =  _user['zone'] 
         # if _user['role'] == 1:
         #     filter_query_by_user = "DCVerificationStatus"
         # else:
@@ -814,7 +819,7 @@ class SelfEmpanelmentSelectForDocusign(APIView):
         # after legal verified (field name)
         filter_query_by_user = "DCVerificationStatusByLegal"
 
-        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, "DCVerificationStatusByLegal": "verify", "DCVerificationStatus": "verify"  })
+        total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, "DCVerificationStatusByLegal": "verify", "DCVerificationStatus": "verify", "zone": user_zone })
         
         total_selfEmpanelment_verify_list = []
         for document in total_selfEmpanelment_verify_cursor:
@@ -1043,7 +1048,6 @@ class FileUploadView(APIView):
             dcname = form_data.get('dcName')
             pan_number = form_data.get('pan_number')
             aadhar_number = form_data.get('aadhar_number')
-            # pan_image = request.FILES.get('pan_image')
             # Check if file was provided
             if not pan_image:
                 return Response({'error': 'Pan image is required'}, status=400)
@@ -1087,6 +1091,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+            FirmType = form_data.get('FirmType')
             providerName = form_data.get('providerName')
             providerType = form_data.get('providerType')
             DC_Chain = form_data.get('DC_Chain')
@@ -1097,6 +1102,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
             nameOnPanCard = form_data.get('nameOnPanCard')
             Adhar_number = form_data.get('Adhar_number')
             Adhar_name = form_data.get('Adhar_name')
+            Owner_name_asper_document = form_data.get('Owner_name_asper_document')
             Center_name = form_data.get('Center_name')
             Accredation = form_data.get('Accredation')
             Station = form_data.get('Station')
@@ -1118,9 +1124,18 @@ class SelfEmpanelmentCreateAPIView(APIView):
             accountType = form_data.get('accountType')
             paymentToBeMadeInFavorOf = form_data.get('paymentToBeMadeInFavorOf')
             paymentMode = form_data.get('paymentMode')
+            
+            availableTests = form_data.get('availableTests')
 
-            ECHOCARDIOGRAPHY = form_data.get('ECHOCARDIOGRAPHY')
+            Opthlmologya = form_data.get('Opthlmologya')
+            MBBS_PHYSICIAN = form_data.get('MBBS_PHYSICIAN')
+            GYNECOLOGY = form_data.get('GYNECOLOGY')
+            OPHTHALMOLOGY = form_data.get('OPHTHALMOLOGY')
             MD_RADIOLOGIST = form_data.get('MD_RADIOLOGIST')
+            
+            CARDIOLOGY_OUTSOURCED_CENTRE = form_data.get('CARDIOLOGY_OUTSOURCED_CENTRE')
+            PATHOLOGY_OUTSOURCED_CENTR = form_data.get('PATHOLOGY_OUTSOURCED_CENTR')
+
             data = {
                 'TicketID': str(ticketId_from_url),
                 'DCID': str(ticketId_from_url),
@@ -1134,6 +1149,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'nameOnPanCard': nameOnPanCard,
                 'Adhar_number': Adhar_number,
                 'Adhar_name': Adhar_name,
+                'Owner_name_asper_document': Owner_name_asper_document,
                 'Center_name': Center_name,
                 'Accredation': Accredation,
                 'Station': Station,
@@ -1156,12 +1172,20 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'accountType': accountType,
                 'paymentToBeMadeInFavorOf': paymentToBeMadeInFavorOf,
                 'paymentMode': paymentMode,
-                'ECHOCARDIOGRAPHY': ECHOCARDIOGRAPHY,
+                'Opthlmologya': Opthlmologya,
+                'MBBS_PHYSICIAN': MBBS_PHYSICIAN,
+                'GYNECOLOGY': GYNECOLOGY,
+                'OPHTHALMOLOGY': OPHTHALMOLOGY,
                 'MD_RADIOLOGIST': MD_RADIOLOGIST,
+                'availableTests': availableTests,
+                'CARDIOLOGY_OUTSOURCED_CENTRE': CARDIOLOGY_OUTSOURCED_CENTRE,
+                'PATHOLOGY_OUTSOURCED_CENTR': PATHOLOGY_OUTSOURCED_CENTR,
+                'FirmType': FirmType,
             }
 
             # Check if image fields exist before accessing
-            image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            # image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
             for field in image_fields:
                 if field in form_data:
                     data[field] = form_data.get(field).read()
@@ -1236,7 +1260,7 @@ class docusignAgreementFileAPIView(APIView):
         if empanelmentID:
             empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})    
             dc_email = empanelment_docu['emailId']
-            dc_name = empanelment_docu['providerName']
+            dc_name = empanelment_docu['Owner_name']
             dc_DCID = empanelment_docu['DCID']
         serializer = docusignAgreementFileSerializer(data=request.data)
 
@@ -1250,12 +1274,14 @@ class docusignAgreementFileAPIView(APIView):
             'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT,
             'documentName' : documentName,
             'documentExtension' : documentExtension,
-            'dc_signer_email' : 'navnit.bhoir@alineahealthcare.in',
-            'dc_signer_name' : 'Navnit bhoir',
-            # 'dc_signer_email' : dc_email,
-            # 'dc_signer_name' : dc_name,
-            'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
-            'authority_signer_name' : 'Pankaj Sajekar',
+            # 'dc_signer_email' : 'navnit.bhoir@alineahealthcare.in',
+            # 'dc_signer_name' : 'Navnit bhoir',
+            'dc_signer_email' : dc_email,
+            'dc_signer_name' : dc_name,
+            # 'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            # 'authority_signer_name' : 'Pankaj Sajekar',
+            'authority_signer_email' : 'anil.thakur@alineahealthcare.in',
+            'authority_signer_name' : 'anil thakur',
             'status' : 'sent',
         }
 
@@ -1292,7 +1318,7 @@ class docusignAgreementFileAPIView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
         
 
-
+# update in mongodb by docusign status 
 class docusignCheckStatusAPIView(APIView):
     def get(self, request):
         empanelmentID = request.query_params.get('id')
@@ -1304,8 +1330,8 @@ class docusignCheckStatusAPIView(APIView):
             
             token = docusign_JWT_Auth()
             envelopeStatusRes = docusign_get_envelope_status(token.get('access_token'), ds_envelope_envelopeId)
-            # get_envelope_res = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
-            # print(get_envelope_res)
+            # get_envelope_res_pdf_content = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
+            # print(get_envelope_res_pdf_content)
             if envelopeStatusRes['status'] == 'completed':
                 # upadate status closed
                 ticketStatusUpdate(dc_TicketID, 5)
@@ -1331,3 +1357,63 @@ class docusignCheckStatusAPIView(APIView):
         return Response(serializer_data, status=status.HTTP_200_OK)
     
 
+class SaveToMongoDocusignDocumentContentAPIView(APIView):
+    def get(self, request):
+        empanelmentID = request.query_params.get('id')
+        if empanelmentID:
+            # get document
+            empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})
+            ds_envelope_envelopeId = empanelment_docu['ds_envelope_envelopeId']
+            
+            token = docusign_JWT_Auth()
+            get_envelope_res_pdf_content = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
+            
+            # update document
+            update_data = {
+                "ds_envelope_document_content": get_envelope_res_pdf_content
+            }
+            empanelment_docu = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
+
+        serializer_data = {
+            "status": "Success",
+            "data": {
+                "envelopeId":ds_envelope_envelopeId,
+            },
+            "message": "Save PDF in MongoDB",
+            "serviceName": "SaveToMongoDocusignDocumentContent_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_200_OK,
+        }
+        return Response(serializer_data, status=status.HTTP_200_OK)
+    
+
+
+class SaveIntoDBAndViewDocusignDocumentContentAPIView(APIView):
+    def get(self, request):
+        empanelmentID = request.query_params.get('id')
+        if empanelmentID:
+            # get document
+            empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})
+            ds_envelope_envelopeId = empanelment_docu['ds_envelope_envelopeId']
+            if 'ds_envelope_document_content' in empanelment_docu:
+                print("------------if cond")
+                ds_envelope_document_content = empanelment_docu['ds_envelope_document_content']
+
+                pdf_content = base64.b64encode(ds_envelope_document_content).decode('utf-8')
+                return Response(pdf_content, status=status.HTTP_200_OK)
+            else:
+                print("------------else cond")
+                token = docusign_JWT_Auth()
+                get_envelope_res_pdf_content = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
+                
+                # update document
+                update_data = {
+                    "ds_envelope_document_content": get_envelope_res_pdf_content
+                }
+                empanelment_docu = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
+                pdf_content = base64.b64encode(get_envelope_res_pdf_content).decode('utf-8')
+                return Response(pdf_content, status=status.HTTP_200_OK)
+            
+
+
+           
