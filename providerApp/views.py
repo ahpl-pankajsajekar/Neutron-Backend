@@ -498,7 +498,7 @@ class selfEmpanelmentDetailAPIView(APIView):
             
             # Check if image fields exist before accessing
             # image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
-            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image', 'stamp_paper_image']
             for field in image_fields:
                 if field in document:
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
@@ -547,8 +547,7 @@ class selfEmpanelmentDetailForLegalAPIView(APIView):
                 providerData['verifiedByNetworkDate'] = document['verifiedByNetworkDate']
             
             # Check if image fields exist before accessing
-            # image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
-            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image', 'stamp_paper_image']
             for field in image_fields:
                 if field in document:
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
@@ -1180,7 +1179,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
             }
 
             # Check if image fields exist before accessing
-            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image', 'stamp_paper_image']
             for field in image_fields:
                 if field in form_data:
                     data[field] = form_data.get(field).read()

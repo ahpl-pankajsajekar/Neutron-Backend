@@ -239,35 +239,3 @@ class CreateEnvelopeView(APIView):
             return Response({"redirect_url": results.url}, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# views.py
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-import pdfrw
-
-
-class writeOnPdf(APIView):
-    def post(self, request):
-        # Get data from request
-        data ={
-            "Name": "John Doe",
-            "Age": "30",
-            "Email": "john.doe@example.com"
-        }
-
-        # Load PDF template
-        template_path = 'C:\\Users\\pankaj.sajekar\\Downloads\\dummy.pdf'
-        template_pdf = pdfrw.PdfReader(template_path)
-        template_pdf.Root.AcroForm.update(pdfrw.PdfDict(NeedAppearances=pdfrw.PdfObject('true')))
-
-        # Fill in form fields
-        for field in template_pdf.Root.AcroForm.Fields:
-            if field.T in data:
-                field.V = data[field.T]
-
-        # Save filled PDF
-        output_path = 'C:/Users/pankaj.sajekar/Downloads/filled_template.pdf'
-        pdfrw.PdfWriter().write(output_path, template_pdf)
-        print(output_path)
-
-        return Response({'filled_pdf_path': output_path})

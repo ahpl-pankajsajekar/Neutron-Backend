@@ -25,9 +25,4 @@ urlpatterns = [
     # Tocken
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-
-    path('pdf/', views.writeOnPdf.as_view(),),
-
-
-
 ]
