@@ -49,6 +49,6 @@ urlpatterns = [
     # Docusign Agreement check status
     path('docusignAgreement/envelope/document/save/', views.SaveToMongoDocusignDocumentContentAPIView.as_view()),
     # Docusign Agreement  save pdf and view
-    path('docusignAgreement/envelope/document/view/', views.SaveIntoDBAndViewDocusignDocumentContentAPIView.as_view()),
+    path('docusignAgreement/envelope/document/saveAndview/', views.SaveIntoDBAndViewDocusignDocumentContentAPIView.as_view()),
         
 ]

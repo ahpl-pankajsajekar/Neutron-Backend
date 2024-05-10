@@ -921,6 +921,7 @@ class SelfEmpanelmentVerificationByLegalAPIView(APIView):
             getDocuments = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID_query)})
             form_data['verifiedByLegalUser'] = _user['_id']
             form_data['verifiedByLegalDate'] = datetime.datetime.now()
+            form_data['ds_envelope_status'] = ['waiting']
             del form_data['id']
             print("form_data", form_data)   
             # update data in existing documents                            
@@ -1075,6 +1076,7 @@ class FileUploadView(APIView):
 class SelfEmpanelmentCreateAPIView(APIView):
     def post(self, request, id=None, *args, **kwargs):
         ticketId_from_url = id
+        print("------", id, request.data )
         if ticketId_from_url == None:
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -1086,7 +1088,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 dc_data = serializer.data
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+            print(dc_zone_from_ticket, form_data)
             FirmType = form_data.get('FirmType')
             providerName = form_data.get('providerName')
             providerType = form_data.get('providerType')
@@ -1119,8 +1121,6 @@ class SelfEmpanelmentCreateAPIView(APIView):
             accountType = form_data.get('accountType')
             
             availableTests = form_data.get('availableTests')
-
-            print(type(availableTests),"--", availableTests)
 
             Opthlmologya = form_data.get('Opthlmologya')
             MBBS_PHYSICIAN = form_data.get('MBBS_PHYSICIAN')
@@ -1302,13 +1302,16 @@ class docusignAgreementSentAPIView(APIView):
         envelope_res = docusign_create_and_send_envelope(args, access_token)
 
         update_data = {
-            "ds_envelope_status": envelope_res['envelopeData']['status'],
+            # "ds_envelope_status": envelope_res['envelopeData']['status'],
             "ds_envelope_envelopeId": envelope_res['envelopeData']['envelopeId'],
             "ds_envelope_statusDateTime": envelope_res['envelopeData']['statusDateTime'],
             "ds_envelope_uri": envelope_res['envelopeData']['uri'],
         }
-        empanelment_docu_result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
-        
+        empanelment_docu_result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data})
+
+        #  insert into array field using push method
+        empanelment_docu_result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {'$push': {'ds_envelope_status': envelope_res['envelopeData']['status']}}) 
+
         if empanelment_docu_result.modified_count == 1:
                 response_data = {
                         "status": "Successful",
@@ -1407,12 +1410,12 @@ class docusignCheckStatusAPIView(APIView):
                 # upadate status closed
                 ticketStatusUpdate(dc_TicketID, 5)
             
-            # update document
-            update_data = {
-                "ds_envelope_status": envelopeStatusRes['status'],
-            }
-            empanelment_docu = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
-
+            # add evelope status if last status not matching with current status and after envelope send
+            if empanelment_docu['ds_envelope_status'][-1] != envelopeStatusRes['status'] and empanelment_docu['ds_envelope_status'][0] == 'waiting' :
+                insert_data = { "ds_envelope_status": envelopeStatusRes['status'], }
+                empanelment_docu = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$push": insert_data}) 
+            else:
+                print("status not added")
         
         serializer_data = {
             "status": "Success",
@@ -1466,24 +1469,21 @@ class SaveIntoDBAndViewDocusignDocumentContentAPIView(APIView):
             # get document
             empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})
             ds_envelope_envelopeId = empanelment_docu['ds_envelope_envelopeId']
+            DC_providerName = empanelment_docu['providerName']
+            # document signed by docusign and stored in db then provide document in pdf
             if 'ds_envelope_document_content' in empanelment_docu:
-                print("------------if cond")
                 ds_envelope_document_content = empanelment_docu['ds_envelope_document_content']
-
                 pdf_content = base64.b64encode(ds_envelope_document_content).decode('utf-8')
-                return Response(pdf_content, status=status.HTTP_200_OK)
+                return Response({'pdf_content':pdf_content, "DC_name": DC_providerName }, status=status.HTTP_200_OK)
             else:
-                print("------------else cond")
+                # store document in db and provide pdf
                 token = docusign_JWT_Auth()
                 get_envelope_res_pdf_content = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
                 
-                # update document
-                update_data = {
-                    "ds_envelope_document_content": get_envelope_res_pdf_content
-                }
+                update_data = { "ds_envelope_document_content": get_envelope_res_pdf_content, 'DC_Empanelment_Status': "Registered" }
                 empanelment_docu = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
                 pdf_content = base64.b64encode(get_envelope_res_pdf_content).decode('utf-8')
-                return Response(pdf_content, status=status.HTTP_200_OK)
+                return Response({'pdf_content':pdf_content, "DC_name": DC_providerName}, status=status.HTTP_200_OK)
             
 
 

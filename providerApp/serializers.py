@@ -9,11 +9,11 @@ class EmpanelmentSerializer(serializers.Serializer):
     
 class SelfEmpanelmentSerializer(serializers.Serializer):
     providerName = serializers.CharField(max_length=250)
-    Regi_number = serializers.CharField(max_length=250)
-    Owner_name = serializers.CharField(max_length=250)
-    PanCard_number = serializers.CharField(max_length=250)
-    emailId = serializers.EmailField()
-    pan_image = serializers.ImageField()
+    # Regi_number = serializers.CharField(max_length=250)
+    # Owner_name = serializers.CharField(max_length=250)
+    # PanCard_number = serializers.CharField(max_length=250)
+    # emailId = serializers.EmailField()
+    # pan_image = serializers.ImageField()
 
 class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
     id = serializers.CharField(max_length=180)
