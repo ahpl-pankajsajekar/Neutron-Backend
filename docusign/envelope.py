@@ -17,22 +17,23 @@ def docusign_create_and_send_envelope(args, DOCUSIGN_ACCESS_TOKEN):
         ],
         "recipients": {
             "signers": [
-                {
-                    "email": args['dc_signer_email'],
-                    "name": args['dc_signer_name'],
-                    "recipientId": "1",
-                    "routingOrder": "1",
-                },
+                # {
+                #     "email": args['dc_signer_email'],
+                #     "name": args['dc_signer_name'],
+                #     "recipientId": "1",
+                #     "routingOrder": "1",
+                # },
                 {
                     "email": args['authority_signer_email'],
                     "name": args['authority_signer_name'],
                     "recipientId": "2",
-                    "routingOrder": "2",
+                    "routingOrder": "1",
                 }
             ]
         },
         "status": args['status'],
     }
+    # print("--------------->", envelope_json)
     # Send POST request to create and send envelope
     api_url = "{}/v2/accounts/{}/envelopes".format(DOCUSIGN_ACCOUNT_BASE_URL, DOCUSIGN_ACCOUNT_ID)
     headers = {
@@ -41,6 +42,7 @@ def docusign_create_and_send_envelope(args, DOCUSIGN_ACCESS_TOKEN):
     }
     response = requests.post(api_url, json=envelope_json, headers=headers)
 
+    # print(response.json())
     # Handle the response
     if response.status_code == 201:
         envelope_id = response.json()["envelopeId"]

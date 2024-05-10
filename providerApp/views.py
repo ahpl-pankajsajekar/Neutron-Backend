@@ -113,7 +113,6 @@ def ViewTicketFunction(ticket_id):
         }
         response = requests.get(url, headers=headers)
         res = response.json()
-        print(response.json())
         if response.status_code == 200:
            return response.json()
         else:
@@ -134,7 +133,7 @@ def ViewTicketFunction(ticket_id):
             "timeStamp": datetime.datetime.now().isoformat(),
             "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         }
-    return(response_data)
+    return response_data
 # ViewTicketFunction(584387)
 
 
@@ -548,7 +547,8 @@ class selfEmpanelmentDetailForLegalAPIView(APIView):
                 providerData['verifiedByNetworkDate'] = document['verifiedByNetworkDate']
             
             # Check if image fields exist before accessing
-            image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            # image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
             for field in image_fields:
                 if field in document:
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
@@ -741,8 +741,7 @@ class SelfEmpanelmentSelectForLegal(APIView):
             if 'verifiedByNetworkDate' in document:
                 filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
             if 'verifiedByNetworkUser' in document:
-                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
-            
+                    filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             if 'verifiedByLegalDate' in document:
                 filtered_data["verifiedByLegalDate"] = document['verifiedByLegalDate']
             if 'verifiedByLegalUser' in document:
@@ -1080,11 +1079,9 @@ class SelfEmpanelmentCreateAPIView(APIView):
         if ticketId_from_url == None:
             return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            form_data=request.data
             ticketDetails = ViewTicketFunction(ticketId_from_url)
             dc_zone_from_ticket = ticketDetails['custom_fields']['cf_select_your_zone']
-            print("---------dc_zone", dc_zone_from_ticket)
-            form_data=request.data
-            # Get data from request
             serializer = SelfEmpanelmentSerializer(data=form_data)
             if serializer.is_valid():
                 dc_data = serializer.data
@@ -1105,7 +1102,6 @@ class SelfEmpanelmentCreateAPIView(APIView):
             Owner_name_asper_document = form_data.get('Owner_name_asper_document')
             Center_name = form_data.get('Center_name')
             Accredation = form_data.get('Accredation')
-            Station = form_data.get('Station')
             address1 = form_data.get('address1')
             address2 = form_data.get('address2')
             state = form_data.get('state')
@@ -1122,10 +1118,10 @@ class SelfEmpanelmentCreateAPIView(APIView):
             ifscCode = form_data.get('ifscCode')
             branchName = form_data.get('branchName')
             accountType = form_data.get('accountType')
-            paymentToBeMadeInFavorOf = form_data.get('paymentToBeMadeInFavorOf')
-            paymentMode = form_data.get('paymentMode')
             
             availableTests = form_data.get('availableTests')
+
+            print(type(availableTests),"--", availableTests)
 
             Opthlmologya = form_data.get('Opthlmologya')
             MBBS_PHYSICIAN = form_data.get('MBBS_PHYSICIAN')
@@ -1152,7 +1148,6 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'Owner_name_asper_document': Owner_name_asper_document,
                 'Center_name': Center_name,
                 'Accredation': Accredation,
-                'Station': Station,
                 'address1': address1,
                 'address2': address2,
                 'state': state,
@@ -1170,21 +1165,21 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'ifscCode': ifscCode,
                 'branchName': branchName,
                 'accountType': accountType,
-                'paymentToBeMadeInFavorOf': paymentToBeMadeInFavorOf,
-                'paymentMode': paymentMode,
+        
                 'Opthlmologya': Opthlmologya,
                 'MBBS_PHYSICIAN': MBBS_PHYSICIAN,
                 'GYNECOLOGY': GYNECOLOGY,
                 'OPHTHALMOLOGY': OPHTHALMOLOGY,
                 'MD_RADIOLOGIST': MD_RADIOLOGIST,
+
                 'availableTests': availableTests,
+
                 'CARDIOLOGY_OUTSOURCED_CENTRE': CARDIOLOGY_OUTSOURCED_CENTRE,
                 'PATHOLOGY_OUTSOURCED_CENTR': PATHOLOGY_OUTSOURCED_CENTR,
                 'FirmType': FirmType,
             }
 
             # Check if image fields exist before accessing
-            # image_fields = ['pan_image', 'aadhar_image', 'Accreditation_image', 'Registration_Number_image', 'Ownership_image', 'TDS_image']
             image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image']
             for field in image_fields:
                 if field in form_data:
@@ -1254,6 +1249,82 @@ class DCStatusChangeAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
+
+from django.template.loader import render_to_string
+import tempfile
+
+# send to dc by docusign
+class docusignAgreementSentAPIView(APIView):
+    def post(self, request):
+        empanelmentID = request.data['id']
+        if empanelmentID:
+            empanelment_docu = selfEmpanelment_collection.find_one({'_id': ObjectId(empanelmentID)})    
+            dc_email = empanelment_docu['emailId']
+            dc_name = empanelment_docu['Owner_name']
+            dc_DCID = empanelment_docu['DCID']
+        else:
+            return Response({"status": "error", "message": "Id not Provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        DC_data = {
+            'providerName' : empanelment_docu['providerName'],
+            'providerType' : empanelment_docu['providerType'],
+            'Regi_number' : empanelment_docu['Regi_number'],
+            'Owner_name' : empanelment_docu['Owner_name'],
+            'address1' : empanelment_docu['address1'],
+            'pincode' : empanelment_docu['pincode'],
+            'emailId' : empanelment_docu['emailId'],
+            'FirmType' : empanelment_docu['FirmType'],
+            }
+        html_content = render_to_string('template.html', DC_data)
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp_file:
+            tmp_file.write(html_content)
+        BASE64_ENCODED_DOCUMENT_CONTENT =base64.b64encode(html_content.encode()).decode(),
+
+        args = {
+            'emailSubject' : 'Please Sign on document',
+            'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT[0], # tupple
+            'documentName' : dc_name,
+            'documentExtension' : 'html',
+            'dc_signer_email' : dc_email,
+            'dc_signer_name' : dc_name,
+            'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            'authority_signer_name' : 'Pankaj Sajekar',
+            # 'authority_signer_email' : 'rupali.jadhav@alineahealthcare.in',
+            # 'authority_signer_name' : 'rupali jadhav',
+            'status' : 'sent',
+        }
+        token = docusign_JWT_Auth()
+        if not token:
+            return Response({"status": "error", "message": "Failed to obtain access token from DocuSign."}, status=status.HTTP_403_FORBIDDEN)
+        
+        access_token = token.get('access_token')
+
+        # send for envelope
+        envelope_res = docusign_create_and_send_envelope(args, access_token)
+
+        update_data = {
+            "ds_envelope_status": envelope_res['envelopeData']['status'],
+            "ds_envelope_envelopeId": envelope_res['envelopeData']['envelopeId'],
+            "ds_envelope_statusDateTime": envelope_res['envelopeData']['statusDateTime'],
+            "ds_envelope_uri": envelope_res['envelopeData']['uri'],
+        }
+        empanelment_docu_result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID)}, {"$set": update_data}) 
+        
+        if empanelment_docu_result.modified_count == 1:
+                response_data = {
+                        "status": "Successful",
+                        "data": envelope_res['envelopeData'],
+                        "message": "",
+                        "serviceName": "docusignAgreementFile_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                        }
+                return Response(response_data, status=status.HTTP_200_OK)
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+# Not needed 
 class docusignAgreementFileAPIView(APIView):
     def post(self, request):
         empanelmentID = request.data['id']
@@ -1262,9 +1333,10 @@ class docusignAgreementFileAPIView(APIView):
             dc_email = empanelment_docu['emailId']
             dc_name = empanelment_docu['Owner_name']
             dc_DCID = empanelment_docu['DCID']
+
         serializer = docusignAgreementFileSerializer(data=request.data)
 
-        if serializer.is_valid():
+        if serializer.is_valid():   
             BASE64_ENCODED_DOCUMENT_CONTENT = serializer.validated_data['base64_content']
             documentExtension = serializer.validated_data['file_extension']
             documentName = serializer.validated_data['file_name']
@@ -1278,10 +1350,10 @@ class docusignAgreementFileAPIView(APIView):
             # 'dc_signer_name' : 'Navnit bhoir',
             'dc_signer_email' : dc_email,
             'dc_signer_name' : dc_name,
-            # 'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
-            # 'authority_signer_name' : 'Pankaj Sajekar',
-            'authority_signer_email' : 'anil.thakur@alineahealthcare.in',
-            'authority_signer_name' : 'anil thakur',
+            'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            'authority_signer_name' : 'Pankaj Sajekar',
+            # 'authority_signer_email' : 'rupali.jadhav@alineahealthcare.in',
+            # 'authority_signer_name' : 'rupali jadhav',
             'status' : 'sent',
         }
 

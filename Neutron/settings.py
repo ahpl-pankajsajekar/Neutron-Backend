@@ -191,3 +191,6 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "_id",
     "USER_ID_CLAIM": "user_id",
 }
+
+# The number of GET/POST parameters exceeded in request
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
