@@ -60,7 +60,6 @@ def ticketStatusUpdate(ticket_id, ticket_status_code):
     try:
         url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
         # update status   
-        # 49 = submited to DC , 4 = Resolved
         body_data = {
             "status": ticket_status_code,
         }
@@ -71,34 +70,20 @@ def ticketStatusUpdate(ticket_id, ticket_status_code):
         response = requests.put(url, json=body_data, headers=headers)
         res = response.json()
         if response.status_code == 200:
-            print("Ticket updated successfully!")
             response_data = {
                 "status":  "Successful",
                 "message":  "Ticket updated successfully!",
-                "serviceName": "ticketStatusUpdate_Function",
-                "timeStamp": datetime.datetime.now().isoformat(),
-                "code": 200,
             }
         else:
-            print("Failed to update ticket. Status code:", response.status_code)
             response_data = {
                 "status":  res['code'],
                 "message":  res['message'],
-                "serviceName": "ticketStatusUpdate_Function",
-                "timeStamp": datetime.datetime.now().isoformat(),
-                "code": response.status_code,
             }
-        # return Response(response_data)
     except requests.exceptions.RequestException as e:
-        print("Error making request:", e)
         response_data = {
             "status": "Failed",
             "message": e,
-            "serviceName": "ticketStatusUpdate_Function",
-            "timeStamp": datetime.datetime.now().isoformat(),
-            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         }
-        # return Response(response_data)
     print(response_data)
     return(response_data)
 # ticketStatusUpdate(584387, 49)
@@ -119,31 +104,14 @@ def ViewTicketFunction(ticket_id):
             response_data = {
                 "status":  res['code'],
                 "message":  res['message'],
-                "serviceName": "ticketStatusUpdate_Function",
-                "timeStamp": datetime.datetime.now().isoformat(),
-                "code": response.status_code,
             }
-        # return Response(response_data)
     except requests.exceptions.RequestException as e:
-        print("Error making request:", e)
         response_data = {
             "status": "Failed",
             "message": e,
-            "serviceName": "ViewTicket_Function",
-            "timeStamp": datetime.datetime.now().isoformat(),
-            "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         }
     return response_data
 # ViewTicketFunction(584387)
-
-
-class home(APIView):
-    def get(self, request, *args, **kwargs):
-        # selfEmpanelment_collection.create_index([("$**", "text")])
-        # search_query = "Sajekar"
-        # personData = selfEmpanelment_collection.find({ "$text": { "$search": search_query } })
-        # return JsonResponse(personData, safe=False)
-        return Response("hello")
     
 
 # Search in this fields [Pincode, Test Available] that documents show for API
@@ -476,7 +444,8 @@ class EmpanelmentCreateAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-# Verify view
+
+# Verify view get data 
 class selfEmpanelmentDetailAPIView(APIView):
     def post(self, request):
         try:
@@ -505,13 +474,24 @@ class selfEmpanelmentDetailAPIView(APIView):
                 else:
                     providerData[field] = "" 
 
+            # gives data if user have verified document status
+            documentVerifiedStatusByNetwork = {}
+            if "verifiedByNetworkDate" in document:
+                verified_document_list = ['isPanVerified', "isAadharVerified", "isAccreditationVerified" , "isCurrentBankStatementVerified", "isEstablishmentCertificateVerified",  'isAuthorityLetterVerfied', 'isStampPaperVerified', 'isPartnershipAgreementVerfied']
+                for field in verified_document_list:
+                    if field in document:
+                        documentVerifiedStatusByNetwork[field] = document[field]
+                    else:
+                        documentVerifiedStatusByNetwork[field] = False
+                providerData['documentVerifiedStatus'] = documentVerifiedStatusByNetwork
+
             if document:
                 response_data = {
                     "status": "Successful",
                     "data": providerData,
                     # "data": json.loads(json_util.dumps(document)),
                     "message": "Document Found Successfully",
-                    "serviceName": "EmpanelmentDetails_Service",
+                    "serviceName": "selfEmpanelmentDetails_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
                     "code": status.HTTP_200_OK,
                     }
@@ -553,6 +533,18 @@ class selfEmpanelmentDetailForLegalAPIView(APIView):
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
                 else:
                     providerData[field] = "" 
+
+            
+            # gives data if user have verified document status
+            documentVerifiedStatusBylegal = {}
+            if "verifiedByNetworkDate" in document:
+                verified_document_list = ['isPanVerified', "isAadharVerified", "isAccreditationVerified" , "isCurrentBankStatementVerified", "isEstablishmentCertificateVerified",  'isAuthorityLetterVerfied', 'isStampPaperVerified', 'isPartnershipAgreementVerfied']
+                for field in verified_document_list:
+                    if field in document:
+                        documentVerifiedStatusBylegal[field] = document[field]
+                    else:
+                        documentVerifiedStatusBylegal[field] = False
+                providerData['documentVerifiedStatus'] = documentVerifiedStatusBylegal
 
             if document:
                 response_data = {
@@ -878,9 +870,8 @@ class SelfEmpanelmentVerificationAPIView(APIView):
             if form_data['DCVerificationStatus'] == 'verify':
                 # verify
                 # 50 Forwarded to legal after QC1
-	            # 51 Document verified by legal
                 ticket_status_code = 50
-            else:
+            elif form_data['DCVerificationStatus'] == 'partialVerify':
                 # partial verify
 	            # 52 Issue In Document
                 ticket_status_code = 52
@@ -892,7 +883,7 @@ class SelfEmpanelmentVerificationAPIView(APIView):
                     "status": "Successful",
                     "data": json.loads(json_util.dumps(getDocuments)),
                     "message": "Document Found Successfully",
-                    "serviceName": "EmpanelmentDetails_Service",
+                    "serviceName": "SelfEmpanelmentVerification_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
                     "code": status.HTTP_200_OK,
                     }
@@ -929,7 +920,6 @@ class SelfEmpanelmentVerificationByLegalAPIView(APIView):
             ticket_id = getDocuments['TicketID']
             if form_data['DCVerificationStatusByLegal'] == 'verify':
                 # verify
-                # 50 Forwarded to legal after QC1
 	            # 51 Document verified by legal
                 ticket_status_code = 51
             else:
@@ -975,7 +965,7 @@ class SelfEmpanelmentList(APIView):
                     "status": "Successful",
                     "data": providerData,
                     "message": "Document Found Successfully",
-                    "serviceName": "EmpanelmentDetails_Service",
+                    "serviceName": "SelfEmpanelmentList_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
                     "code": status.HTTP_200_OK,
                     }

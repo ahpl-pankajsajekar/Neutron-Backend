@@ -4,7 +4,6 @@ from . import views
 urlpatterns = [
     path('dc-api-integration/', views.ADD_DC_APIIntegrations.as_view()),
 
-
     path('empanelment/add/', views.EmpanelmentCreateAPIView.as_view()),
     path('empanelment/delete/', views.EmpanelmentDeleteAPIView.as_view()),
 
@@ -13,9 +12,10 @@ urlpatterns = [
 
     path('selfemp/select/', views.SelfEmpanelmentSelect.as_view()), # network team
     path('selfemp/select/legal/', views.SelfEmpanelmentSelectForLegal.as_view()),  # legal team
+    # store data from verification page [Post]
     path('selfemp/verification/', views.SelfEmpanelmentVerificationAPIView.as_view()),
     path('selfemp/verification/legal/', views.SelfEmpanelmentVerificationByLegalAPIView.as_view()),
-    # gives documents data [POST]
+    # gives documents data for verification [get]
     path('empanelment/', views.selfEmpanelmentDetailAPIView.as_view()),
     path('empanelment/details/legal/', views.selfEmpanelmentDetailForLegalAPIView.as_view()),
 

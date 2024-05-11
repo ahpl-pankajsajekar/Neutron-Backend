@@ -17,17 +17,26 @@ def docusign_create_and_send_envelope(args, DOCUSIGN_ACCESS_TOKEN):
         ],
         "recipients": {
             "signers": [
-                # {
-                #     "email": args['dc_signer_email'],
-                #     "name": args['dc_signer_name'],
-                #     "recipientId": "1",
-                #     "routingOrder": "1",
-                # },
+                {
+                    "email": args['dc_signer_email'],
+                    "name": args['dc_signer_name'],
+                    "recipientId": "1",
+                    "routingOrder": "1",
+                },
                 {
                     "email": args['authority_signer_email'],
                     "name": args['authority_signer_name'],
                     "recipientId": "2",
                     "routingOrder": "1",
+                    # "tabs": {
+                    #     "signHereTabs": [{
+                    #         "anchorString": "test",
+                    #         "anchorXOffset": "20",
+                    #         "anchorYOffset": "10",
+                    #         "anchorIgnoreIfNotPresent": "false",
+                    #         "anchorUnits": "inches"
+                    #     }]
+                    # }
                 }
             ]
         },
