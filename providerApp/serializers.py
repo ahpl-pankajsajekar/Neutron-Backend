@@ -8,12 +8,19 @@ class EmpanelmentSerializer(serializers.Serializer):
     pass
     
 class SelfEmpanelmentSerializer(serializers.Serializer):
+    providerType = serializers.CharField(max_length=100)
     providerName = serializers.CharField(max_length=250)
-    # Regi_number = serializers.CharField(max_length=250)
-    # Owner_name = serializers.CharField(max_length=250)
-    # PanCard_number = serializers.CharField(max_length=250)
-    # emailId = serializers.EmailField()
-    # pan_image = serializers.ImageField()
+    Regi_number = serializers.CharField(max_length=250)
+    Owner_name = serializers.CharField(max_length=250)
+    PanCard_number = serializers.CharField(max_length=250)
+    address1 = serializers.CharField(max_length=250)
+    pincode = serializers.CharField(max_length=20)
+    emailId = serializers.EmailField()
+    accountNumber = serializers.CharField(max_length=50)
+    accountName = serializers.CharField(max_length=100)
+    ifscCode = serializers.CharField(max_length=50)
+    FirmType = serializers.CharField(max_length=100)
+    pan_image = serializers.ImageField()
 
 class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
     id = serializers.CharField(max_length=180)
