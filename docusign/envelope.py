@@ -22,21 +22,30 @@ def docusign_create_and_send_envelope(args, DOCUSIGN_ACCESS_TOKEN):
                     "name": args['dc_signer_name'],
                     "recipientId": "1",
                     "routingOrder": "1",
+                    "tabs": {
+                        "signHereTabs": [{
+                            "anchorString": "On behalf of the SERVICE ",
+                            "anchorXOffset": "50",
+                            "anchorYOffset": "-52",
+                            "anchorIgnoreIfNotPresent": "false",
+                            "anchorUnits": "pixels"
+                        }]
+                    }
                 },
                 {
                     "email": args['authority_signer_email'],
                     "name": args['authority_signer_name'],
                     "recipientId": "2",
-                    "routingOrder": "1",
-                    # "tabs": {
-                    #     "signHereTabs": [{
-                    #         "anchorString": "test",
-                    #         "anchorXOffset": "20",
-                    #         "anchorYOffset": "10",
-                    #         "anchorIgnoreIfNotPresent": "false",
-                    #         "anchorUnits": "inches"
-                    #     }]
-                    # }
+                    "routingOrder": "2",
+                    "tabs": {
+                        "signHereTabs": [{
+                            "anchorString": "On behalf of the Alinea",
+                            "anchorXOffset": "50",
+                            "anchorYOffset": "-70",
+                            "anchorIgnoreIfNotPresent": "false",
+                            "anchorUnits": "pixels"
+                        }]
+                    }
                 }
             ]
         },
@@ -51,7 +60,7 @@ def docusign_create_and_send_envelope(args, DOCUSIGN_ACCESS_TOKEN):
     }
     response = requests.post(api_url, json=envelope_json, headers=headers)
 
-    # print(response.json())
+    print(response.json())
     # Handle the response
     if response.status_code == 201:
         envelope_id = response.json()["envelopeId"]

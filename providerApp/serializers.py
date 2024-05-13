@@ -8,6 +8,7 @@ class EmpanelmentSerializer(serializers.Serializer):
     pass
     
 class SelfEmpanelmentSerializer(serializers.Serializer):
+    isConfirmCheckbox = serializers.BooleanField(default=False)
     providerType = serializers.CharField(max_length=100)
     providerName = serializers.CharField(max_length=250)
     Regi_number = serializers.CharField(max_length=250)
@@ -21,6 +22,8 @@ class SelfEmpanelmentSerializer(serializers.Serializer):
     ifscCode = serializers.CharField(max_length=50)
     FirmType = serializers.CharField(max_length=100)
     pan_image = serializers.ImageField()
+    dateOnStampPaper = serializers.DateField()
+    # pass
 
 class SelfEmpanelmentVerificationSerializer(serializers.Serializer):
     id = serializers.CharField(max_length=180)
@@ -35,7 +38,7 @@ class DCStatusChangeSerializer(serializers.Serializer):
     DCStatus = serializers.CharField(max_length=250)
 
 
-# send for docusign 
+# send for docusign not using 
 class docusignAgreementFileSerializer(serializers.Serializer):
     agreement_file = serializers.FileField(required=True)
     id = serializers.CharField(max_length=50, required=True)  # self empanelment ID

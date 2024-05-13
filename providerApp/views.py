@@ -1100,8 +1100,10 @@ class SelfEmpanelmentCreateAPIView(APIView):
             pincode = form_data.get('pincode')
             emailId = form_data.get('emailId')
             emailId2 = form_data.get('emailId2')
-            Cantact_person1 = form_data.get('Cantact_person1')
-            Cantact_person2 = form_data.get('Cantact_person2')
+            contact_person1 = form_data.get('contact_person1')
+            contact_person2 = form_data.get('contact_person2')
+            contact_number1 = form_data.get('contact_number1')
+            contact_number2 = form_data.get('contact_number2')
             fax = form_data.get('fax')
             accountNumber = form_data.get('accountNumber')
             accountName = form_data.get('accountName')
@@ -1120,6 +1122,9 @@ class SelfEmpanelmentCreateAPIView(APIView):
             
             CARDIOLOGY_OUTSOURCED_CENTRE = form_data.get('CARDIOLOGY_OUTSOURCED_CENTRE')
             PATHOLOGY_OUTSOURCED_CENTR = form_data.get('PATHOLOGY_OUTSOURCED_CENTR')
+
+            dateOnStampPaper = form_data.get('dateOnStampPaper')
+            isConfirmCheckbox = form_data.get('isConfirmCheckbox')
 
             data = {
                 'TicketID': str(ticketId_from_url),
@@ -1145,9 +1150,12 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'zone': dc_zone_from_ticket,  # set zone from ticket
                 'emailId': emailId,
                 'emailId2': emailId2,
-                'Cantact_person1': Cantact_person1,
-                'Cantact_person2': Cantact_person2,
+                'Cantact_person1': contact_person1,
+                'Cantact_person2': contact_person2,
+                'contact_number1': contact_number1,
+                'contact_number2': contact_number2,
                 'fax': fax,
+
                 'accountNumber': accountNumber,
                 'accountName': accountName,
                 'bankName': bankName,
@@ -1166,6 +1174,9 @@ class SelfEmpanelmentCreateAPIView(APIView):
                 'CARDIOLOGY_OUTSOURCED_CENTRE': CARDIOLOGY_OUTSOURCED_CENTRE,
                 'PATHOLOGY_OUTSOURCED_CENTR': PATHOLOGY_OUTSOURCED_CENTR,
                 'FirmType': FirmType,
+
+                'dateOnStampPaper': dateOnStampPaper,
+                'isConfirmCheckbox': isConfirmCheckbox,
             }
 
             # Check if image fields exist before accessing
@@ -1274,7 +1285,8 @@ class docusignAgreementSentAPIView(APIView):
             'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT[0], # tupple
             'documentName' : dc_name,
             'documentExtension' : 'html',
-            'dc_signer_email' : dc_email,
+            # 'dc_signer_email' : dc_email,
+            'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'dc_signer_name' : dc_name,
             'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'authority_signer_name' : 'Pankaj Sajekar',
