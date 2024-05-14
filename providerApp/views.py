@@ -112,6 +112,39 @@ def ViewTicketFunction(ticket_id):
         }
     return response_data
 # ViewTicketFunction(584387)
+
+# Update Freshdesk Ticket update
+def ticketUpdateFunction(ticket_id, ticket_data):
+    try:
+        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
+        # update status   
+        body_data = {
+            "status": ticket_data,
+        }
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {auth_encoded}'
+        }
+        response = requests.put(url, json=body_data, headers=headers)
+        res = response.json()
+        if response.status_code == 200:
+            response_data = {
+                "status":  "Successful",
+                "message":  "Ticket updated successfully!",
+            }
+        else:
+            response_data = {
+                "status":  res['code'],
+                "message":  res['message'],
+            }
+    except requests.exceptions.RequestException as e:
+        response_data = {
+            "status": "Failed",
+            "message": e,
+        }
+    print(response_data)
+    return(response_data)
+# ticketUpdateFunction(584387, 49)
     
 
 # Search in this fields [Pincode, Test Available] that documents show for API
@@ -1272,9 +1305,15 @@ class docusignAgreementSentAPIView(APIView):
             'Owner_name' : empanelment_docu['Owner_name'],
             'address1' : empanelment_docu['address1'],
             'pincode' : empanelment_docu['pincode'],
-            'emailId' : empanelment_docu['emailId'],
+            'emailId' : empanelment_docu.get('emailId', ''),
             'FirmType' : empanelment_docu['FirmType'],
             }
+        date_on_stamp_paper = empanelment_docu.get('dateOnStampPaper', datetime.date.today())
+        if date_on_stamp_paper:
+            DC_data['stamp_day'] = date_on_stamp_paper.day
+            DC_data['stamp_month'] = date_on_stamp_paper.month
+            DC_data['stamp_year'] = date_on_stamp_paper.year
+
         html_content = render_to_string('template.html', DC_data)
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp_file:
             tmp_file.write(html_content)
@@ -1299,6 +1338,7 @@ class docusignAgreementSentAPIView(APIView):
             return Response({"status": "error", "message": "Failed to obtain access token from DocuSign."}, status=status.HTTP_403_FORBIDDEN)
         
         access_token = token.get('access_token')
+        print("access_token -", access_token)
 
         # send for envelope
         envelope_res = docusign_create_and_send_envelope(args, access_token)

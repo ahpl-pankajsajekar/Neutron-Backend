@@ -147,9 +147,9 @@
       <u
         >{{providerName}}
       </u>
-      on this <u>{{providerType}} </u>day of
-      <u> {{Regi_number}} </u>,
-      <u>&nbsp;&nbsp;&nbsp;&nbsp; </u>between
+      on this <u>{{stamp_day}} </u>day of
+      <u> {{stamp_month}} </u>,
+      <u> {{stamp_year}} </u>between
     </p>
     <p style="text-indent: 0pt; text-align: left"><br /></p>
     <h1 style="padding-left: 5pt; text-indent: 0pt; text-align: justify">
@@ -186,7 +186,7 @@
     />
     <p style="padding-left: 5pt; text-indent: 0pt; text-align: left">
       <u>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </u
+        {{address1}} &nbsp;&nbsp;&nbsp;&nbsp; </u
       >, - hereinafter referred to as <b>“Service Provider”.</b>
     </p>
     <p style="text-indent: 0pt; text-align: left"><br /></p>
@@ -1184,13 +1184,13 @@
               text-align: left;
             "
           >
-            Name:
+            Name: {{Owner_name}}
           </p>
           <p
             class="s4"
             style="
               padding-left: 5pt;
-              padding-right: 164pt;
+              {% comment %} padding-right: 164pt; {% endcomment %}
               text-indent: 0pt;
               text-align: left;
             "
