@@ -32,10 +32,11 @@ urlpatterns = [
     path('DC/update/', views.DCUpdateAPIView.as_view()),
     # Self Empanelment
     path('selfempanelment/add/<int:id>/', views.SelfEmpanelmentCreateAPIView.as_view()),
+    # update self empanelemnt
+    path('selfempanelment/update/<int:id>/', views.SelfEmpanelmentUpdateAPIView.as_view()),
     # For verification
     path('selfempanelments/', views.SelfEmpanelmentList.as_view()),
     path('selfempanelment/', views.SelfEmpanelmentAPIView.as_view()),
-    path('selfempanelment/update/', views.SelfEmpanelmentUpdateAPIView.as_view()),
     
     # Change Dc Status
     path('dcstatus/', views.DCStatusChangeAPIView.as_view()),

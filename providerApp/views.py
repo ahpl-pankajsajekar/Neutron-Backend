@@ -56,18 +56,15 @@ auth_string = f'{freshdesk_username}:{freshdesk_password}'
 auth_encoded = base64.b64encode(auth_string.encode()).decode()
 
 # Update Freshdesk Ticket update
-def ticketStatusUpdate(ticket_id, ticket_status_code):
+def ticketStatusUpdate(ticket_id, fd_ticket_body_data):
     try:
         url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
         # update status   
-        body_data = {
-            "status": ticket_status_code,
-        }
         headers = {
             'Content-Type': 'application/json',
             'Authorization': f'Basic {auth_encoded}'
         }
-        response = requests.put(url, json=body_data, headers=headers)
+        response = requests.put(url, json=fd_ticket_body_data, headers=headers)
         res = response.json()
         if response.status_code == 200:
             response_data = {
@@ -113,39 +110,6 @@ def ViewTicketFunction(ticket_id):
     return response_data
 # ViewTicketFunction(584387)
 
-# Update Freshdesk Ticket update
-def ticketUpdateFunction(ticket_id, ticket_data):
-    try:
-        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
-        # update status   
-        body_data = {
-            "status": ticket_data,
-        }
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Basic {auth_encoded}'
-        }
-        response = requests.put(url, json=body_data, headers=headers)
-        res = response.json()
-        if response.status_code == 200:
-            response_data = {
-                "status":  "Successful",
-                "message":  "Ticket updated successfully!",
-            }
-        else:
-            response_data = {
-                "status":  res['code'],
-                "message":  res['message'],
-            }
-    except requests.exceptions.RequestException as e:
-        response_data = {
-            "status": "Failed",
-            "message": e,
-        }
-    print(response_data)
-    return(response_data)
-# ticketUpdateFunction(584387, 49)
-    
 
 # Search in this fields [Pincode, Test Available] that documents show for API
 class ADD_DC_APIIntegrations(APIView):
@@ -505,18 +469,22 @@ class selfEmpanelmentDetailAPIView(APIView):
                 if field in document:
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
                 else:
-                    providerData[field] = "" 
+                    # providerData[field] = ''
+                    pass
 
             # gives data if user have verified document status
             documentVerifiedStatusByNetwork = {}
             if "verifiedByNetworkDate" in document:
+                document_status =  document['documentVerifiedStatusByNetwork']
                 verified_document_list = ['isPanVerified', "isAadharVerified", "isAccreditationVerified" , "isCurrentBankStatementVerified", "isEstablishmentCertificateVerified",  'isAuthorityLetterVerfied', 'isStampPaperVerified', 'isPartnershipAgreementVerfied']
                 for field in verified_document_list:
-                    if field in document:
-                        documentVerifiedStatusByNetwork[field] = document[field]
+                    if field in document_status:
+                        documentVerifiedStatusByNetwork[field] = document_status[field]
                     else:
-                        documentVerifiedStatusByNetwork[field] = False
-                providerData['documentVerifiedStatus'] = documentVerifiedStatusByNetwork
+                        # documentVerifiedStatusByNetwork[field] = False
+                        pass
+                providerData['documentVerifiedStatusByNetwork'] = documentVerifiedStatusByNetwork
+                providerData['verificationRemarkByNetwork'] = document['verificationRemarkByNetwork']
 
             if document:
                 response_data = {
@@ -576,7 +544,7 @@ class selfEmpanelmentDetailForLegalAPIView(APIView):
                     if field in document:
                         documentVerifiedStatusBylegal[field] = document[field]
                     else:
-                        documentVerifiedStatusBylegal[field] = False
+                        documentVerifiedStatusBylegal[field] = True
                 providerData['documentVerifiedStatus'] = documentVerifiedStatusBylegal
 
             if document:
@@ -891,25 +859,24 @@ class SelfEmpanelmentVerificationAPIView(APIView):
             # removes id data
             del form_data['id']
             form_data['verifiedByNetworkUser'] = _user['_id']
-            form_data['verifiedByNetworkDate'] = datetime.datetime.now()
-            data = {
-                "verificationRemark" : form_data['verificationRemark'],
-                "DCVerificationStatus" : form_data['DCVerificationStatus'],
-                "isPanVerify": form_data['isPanVerify'],
-            }    
+            form_data['verifiedByNetworkDate'] = datetime.datetime.now()  
             # update data in existing documents                            
             selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query) }, {'$set': form_data} )
             ticket_id = getDocuments['TicketID']
             if form_data['DCVerificationStatus'] == 'verify':
                 # verify
                 # 50 Forwarded to legal after QC1
-                ticket_status_code = 50
+                fd_ticket_body_data = {
+                    "status": 50,
+                }
             elif form_data['DCVerificationStatus'] == 'partialVerify':
                 # partial verify
 	            # 52 Issue In Document
-                ticket_status_code = 52
+                fd_ticket_body_data = {
+                    "status": 52,
+                }
 
-            ticketStatusUpdate(ticket_id, ticket_status_code)
+            ticketStatusUpdate(ticket_id, fd_ticket_body_data)
 
             if getDocuments:
                 response_data = {
@@ -954,13 +921,17 @@ class SelfEmpanelmentVerificationByLegalAPIView(APIView):
             if form_data['DCVerificationStatusByLegal'] == 'verify':
                 # verify
 	            # 51 Document verified by legal
-                ticket_status_code = 51
+                fd_ticket_body_data = {
+                    "status": 51,
+                }
             else:
                 # partial verify
 	            # 52 Issue In Document
-                ticket_status_code = 52
+                fd_ticket_body_data = {
+                    "status": 52,
+                }
 
-            ticketStatusUpdate(ticket_id, ticket_status_code)
+            ticketStatusUpdate(ticket_id, fd_ticket_body_data)
 
             if getDocuments:
                 response_data = {
@@ -1030,28 +1001,6 @@ class SelfEmpanelmentAPIView(APIView):
         }
         return Response(serializer_data)
 
-class SelfEmpanelmentUpdateAPIView(APIView):
-    def patch(self, request):
-        data = request.data
-        try:
-            empanelmentID_query = request.query_params.get('id')
-            if empanelmentID_query is None:
-                return Response({"error": "Empanelment Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
-            result = selfEmpanelment_collection.update_one({'_id': ObjectId(empanelmentID_query)}, {'$set': data})
-            if result.modified_count == 1:
-                response_data = {
-                        "status": "Successful",
-                        "message": "Document Partial Update Successfully",
-                        "serviceName": "SelfEmpanelmentUpdate_Service",
-                        "timeStamp": datetime.datetime.now().isoformat(),
-                        "code": status.HTTP_200_OK,
-                        }
-                return Response(response_data)
-            else:
-                return Response({'error': 'Document not found or not modified'}, status=404)
-        
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     
 # testing
@@ -1229,7 +1178,10 @@ class SelfEmpanelmentCreateAPIView(APIView):
             result = selfEmpanelment_collection.insert_one(data)
             # change the status in freshdesk
             # 49 = submited to DC
-            ticketStatusUpdate(ticketId_from_url, 49)
+            fd_ticket_body_data = {
+                    "status": 49,
+            }
+            ticketStatusUpdate(ticketId_from_url, fd_ticket_body_data)
             response_data = {
                     "status": "Successful",
                     "document_id": str(result.inserted_id),
@@ -1247,12 +1199,58 @@ class SelfEmpanelmentCreateAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class SelfEmpanelmentUpdateAPIView(APIView):
+    def put(self, request, id=None):
+        formData = request.data
+        try:
+            ticketId_from_url = id
+            # serializer = SelfEmpanelmentSerializer(data=formData)
+            # if not serializer.is_valid():
+            #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            update_data = {}
+            # Check if image fields exist before accessing
+            image_fields = ['pan_image', 'aadhar_image','Accreditation_image','Current_Bank_Statement_image','Shop_Establishment_Certificate_image','Authority_Letter_image', 'LLP_Partnership_Agreement_image', 'stamp_paper_image']
+            for field in image_fields:
+                if field in formData:
+                    update_data[field] = formData.get(field).read()
+                else:
+                    pass
+            
+            # update_data['DCVerificationStatus'] = 'pending'
+            # update_data['DCVerificationStatusByLegal'] = 'pending'
+            update_data["updated_at"] = datetime.datetime.now()
+
+            result = selfEmpanelment_collection.update_one({'TicketID': ticketId_from_url}, {'$set': update_data })
+            
+            # Update Ticket
+            fd_ticket_body_data = {
+                    "status": 49,
+            }
+            ticketStatusUpdate(ticketId_from_url, fd_ticket_body_data)
+            response_data = {
+                    "status": "Successful",
+                    "message": "Self Empanelment document update Successfully",
+                    "serviceName": "SelfEmpanelmentUpdateAPIView_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                    }
+            return Response(response_data)
+
+        except DuplicateKeyError:
+            error_detail = "Duplicate key error: This Ticket is already Exits."
+            return Response({'error': error_detail}, status=status.HTTP_400_BAD_REQUEST) 
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+
+
 # Dc Chanage Status Activate and deactivate, delist
 class DCStatusChangeAPIView(APIView):
     def post(self, request):
-        fromdata = request.data
+        formData = request.data
         try:
-            DCStatusChangeSerializer(data=fromdata).is_valid()
+            DCStatusChangeSerializer(data=formData).is_valid()
             dcID_query = int(request.query_params.get('dc', None))
             if dcID_query is None:
                 return Response({"error": "DC Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1261,7 +1259,7 @@ class DCStatusChangeAPIView(APIView):
             print(dc_count)
             if dc_count == 0:
                 return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
-            document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': fromdata})
+            document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': formData})
              # Check if the update was successful
             if document.modified_count > 0:
                 response_data = {
@@ -1304,6 +1302,7 @@ class docusignAgreementSentAPIView(APIView):
             'Regi_number' : empanelment_docu['Regi_number'],
             'Owner_name' : empanelment_docu['Owner_name'],
             'address1' : empanelment_docu['address1'],
+            'state' : empanelment_docu['state'],
             'pincode' : empanelment_docu['pincode'],
             'emailId' : empanelment_docu.get('emailId', ''),
             'FirmType' : empanelment_docu['FirmType'],
@@ -1430,7 +1429,6 @@ class docusignAgreementFileAPIView(APIView):
                         }
                 return Response(response_data, status=status.HTTP_200_OK)
         
-        # ticketStatusUpdate(dc_DCID, 49)
         return Response(response_data, status=status.HTTP_200_OK)
         
 
@@ -1450,7 +1448,10 @@ class docusignCheckStatusAPIView(APIView):
             # print(get_envelope_res_pdf_content)
             if envelopeStatusRes['status'] == 'completed':
                 # upadate status closed
-                ticketStatusUpdate(dc_TicketID, 5)
+                fd_ticket_body_data = {
+                        "status": 5,
+                }
+                ticketStatusUpdate(dc_TicketID, fd_ticket_body_data)
             
             # add evelope status if last status not matching with current status and after envelope send
             if empanelment_docu['ds_envelope_status'][-1] != envelopeStatusRes['status'] and empanelment_docu['ds_envelope_status'][0] == 'waiting' :
