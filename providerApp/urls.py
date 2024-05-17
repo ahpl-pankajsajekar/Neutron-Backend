@@ -47,9 +47,11 @@ urlpatterns = [
     path('docusignAgreement/sent/', views.docusignAgreementSentAPIView.as_view()),
     # Docusign Agreement check status
     path('docusignAgreement/envelope/checkstatus/', views.docusignCheckStatusAPIView.as_view()),
-    # Docusign Agreement check status
+    # Docusign Agreement check status not used
     path('docusignAgreement/envelope/document/save/', views.SaveToMongoDocusignDocumentContentAPIView.as_view()),
     # Docusign Agreement  save pdf and view
     path('docusignAgreement/envelope/document/saveAndview/', views.SaveIntoDBAndViewDocusignDocumentContentAPIView.as_view()),
-        
+
+    path('candidateForm/ticket/', views.candidateDCFormAPIView.as_view() ),
+    
 ]

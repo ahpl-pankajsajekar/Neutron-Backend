@@ -61,3 +61,18 @@ class docusignAgreementFileSerializer(serializers.Serializer):
         data['file_size'] = file_size
 
         return data
+
+
+class candidateDCFormSerializer(serializers.Serializer):
+    providerName = serializers.CharField(max_length=250)
+    providerType = serializers.CharField(max_length=100)
+    Owner_name = serializers.CharField(max_length=250)
+    address1 = serializers.CharField(max_length=500)
+    address2 = serializers.CharField(max_length=500)
+    pincode = serializers.CharField(max_length=20)
+    state = serializers.CharField(max_length=50)
+    city = serializers.CharField(max_length=50)
+    contactName = serializers.CharField(max_length=250)
+    contactEmailId = serializers.EmailField()
+    contactMobileNumber = serializers.CharField(max_length=20)
+    

@@ -15,7 +15,7 @@ from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPermission, IsNetworkUserPermission
 from docusign.ds_jwt_auth import docusign_JWT_Auth
 from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
-from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, docusignAgreementFileSerializer
+from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer
 from .models import neutron_collection, selfEmpanelment_collection, testName_collection
 
 from rest_framework.permissions import IsAuthenticated
@@ -110,6 +110,43 @@ def ViewTicketFunction(ticket_id):
     return response_data
 # ViewTicketFunction(584387)
 
+def CreateTicketFunction(fd_body_data):
+    try:
+        url = f"{freshdesk_url}api/v2/tickets"
+        # update status   
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Basic {auth_encoded}'
+        }
+        response = requests.post(url, json=fd_body_data, headers=headers)
+        res = response.json()
+        if response.status_code == 201:
+            response_data = {
+                "status":  "Successful",
+                "data":  res,
+                "message":  "Ticket Created successfully!",
+            }
+        else:
+            response_data = {
+                "status":  res['errors'],
+                "message":  res['description'],
+            }
+    except requests.exceptions.RequestException as e:
+        response_data = {
+            "status": "Failed",
+            "message": e,
+        }
+    print(response_data)
+    return(response_data)
+
+fd_create_ticket_body_data = {
+    "status": 3,
+    "priority": 1,
+    # "subject": "Testing from postman for project neutron",
+    # "requester_id": 89008796442,
+    "cc_emails": ["faraz.khan@alineahealthcare.in"]
+}
+# CreateTicketFunction(fd_create_ticket_body_data)
 
 # Search in this fields [Pincode, Test Available] that documents show for API
 class ADD_DC_APIIntegrations(APIView):
@@ -533,19 +570,23 @@ class selfEmpanelmentDetailForLegalAPIView(APIView):
                 if field in document:
                     providerData[field] = base64.b64encode(document[field]).decode('utf-8')
                 else:
-                    providerData[field] = "" 
-
+                    # providerData[field] = "" 
+                    pass
             
             # gives data if user have verified document status
             documentVerifiedStatusBylegal = {}
-            if "verifiedByNetworkDate" in document:
+            if "verifiedByLegalDate" in document:
+                document_status =  document['documentVerifiedStatusByLegal']
+                print(document_status)
                 verified_document_list = ['isPanVerified', "isAadharVerified", "isAccreditationVerified" , "isCurrentBankStatementVerified", "isEstablishmentCertificateVerified",  'isAuthorityLetterVerfied', 'isStampPaperVerified', 'isPartnershipAgreementVerfied']
                 for field in verified_document_list:
-                    if field in document:
-                        documentVerifiedStatusBylegal[field] = document[field]
+                    if field in document_status:
+                        documentVerifiedStatusBylegal[field] = document_status[field]
                     else:
-                        documentVerifiedStatusBylegal[field] = True
-                providerData['documentVerifiedStatus'] = documentVerifiedStatusBylegal
+                        # documentVerifiedStatusBylegal[field] = True
+                        pass
+                providerData['documentVerifiedStatusByLegal'] = documentVerifiedStatusBylegal
+                # providerData['verificationRemarkByLegal'] = document.get('verificationRemarkByLegal')
 
             if document:
                 response_data = {
@@ -1193,7 +1234,7 @@ class SelfEmpanelmentCreateAPIView(APIView):
             return Response(response_data)
         
         except DuplicateKeyError:
-            error_detail = "Duplicate key error: This Ticket is already Exits."
+            error_detail = "This Ticket is already Exists."
             return Response({'error': error_detail}, status=400) 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1233,13 +1274,10 @@ class SelfEmpanelmentUpdateAPIView(APIView):
                     "message": "Self Empanelment document update Successfully",
                     "serviceName": "SelfEmpanelmentUpdateAPIView_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_201_CREATED,
+                    "code": status.HTTP_200_OK,
                     }
             return Response(response_data)
 
-        except DuplicateKeyError:
-            error_detail = "Duplicate key error: This Ticket is already Exits."
-            return Response({'error': error_detail}, status=status.HTTP_400_BAD_REQUEST) 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
@@ -1307,11 +1345,14 @@ class docusignAgreementSentAPIView(APIView):
             'emailId' : empanelment_docu.get('emailId', ''),
             'FirmType' : empanelment_docu['FirmType'],
             }
-        date_on_stamp_paper = empanelment_docu.get('dateOnStampPaper', datetime.date.today())
+        date_on_stamp_paper = empanelment_docu.get('dateOnStampPaper')
         if date_on_stamp_paper:
-            DC_data['stamp_day'] = date_on_stamp_paper.day
-            DC_data['stamp_month'] = date_on_stamp_paper.month
-            DC_data['stamp_year'] = date_on_stamp_paper.year
+            date_on_stamp_paper = datetime.datetime.strptime(date_on_stamp_paper, '%Y-%m-%d').date() 
+        else:
+            date_on_stamp_paper = datetime.datetime.today()
+        DC_data['stamp_day'] = date_on_stamp_paper.day
+        DC_data['stamp_month'] = date_on_stamp_paper.strftime("%B")  # month name
+        DC_data['stamp_year'] = date_on_stamp_paper.year
 
         html_content = render_to_string('template.html', DC_data)
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp_file:
@@ -1323,8 +1364,8 @@ class docusignAgreementSentAPIView(APIView):
             'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT[0], # tupple
             'documentName' : dc_name,
             'documentExtension' : 'html',
-            # 'dc_signer_email' : dc_email,
-            'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            'dc_signer_email' : dc_email,
+            # 'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'dc_signer_name' : dc_name,
             'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'authority_signer_name' : 'Pankaj Sajekar',
@@ -1529,5 +1570,32 @@ class SaveIntoDBAndViewDocusignDocumentContentAPIView(APIView):
                 return Response({'pdf_content':pdf_content, "DC_name": DC_providerName}, status=status.HTTP_200_OK)
             
 
+class candidateDCFormAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        formData = request.body
+        serializer = candidateDCFormSerializer(data=formData)
+        if not serializer.is_valid:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        add_data = {
+        }
 
-           
+        fd_create_ticket_body_data = {
+            "status": 3,
+            "priority": 1,
+            "subject": "Testing from postman for project neutron",
+            "requester_id": 89008796442,
+            "cc_emails": ["faraz.khan@alineahealthcare.in"]
+        }
+        # CreateTicketFunction(fd_create_ticket_body_data)
+
+        serializer_data = {
+            "status": "Success",
+            "data": "",
+            "message": "Candidate Form Submited",
+            "serviceName": "candidateDCFormAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_201_CREATED,
+        }
+        return Response(serializer_data, status=status.HTTP_201_CREATED)
+        
