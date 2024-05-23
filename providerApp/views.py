@@ -1632,6 +1632,7 @@ class DocusignEnvelopeWebhookAPIView(APIView):
         }
         update_data["envelope_status"].append(envelope)
         print(update_data)
+        # update_data = json.loads(update_data.decode('utf-8'))
         empanelment_docu = selfEmpanelment_collection.update_one({'ds_envelope_envelopeId': envelopeId}, {'$set': update_data })
         print(empanelment_docu)
         serializer_data = {
@@ -1681,16 +1682,8 @@ class candidateDCFormAPIView(APIView):
 class FreshDeskGetTicketWebhookAPIView(APIView):
     def post(self, request, *args, **kwargs):
         formData = request.body
-        formData1 = {
-            "Ticket_Id": "617093",
-            "Subject": "DC Empanelment request",
-            "Agent_Name": "kushal bedekar",
-            "Description": "Not given.",
-            "Priority_1": "Low",
-            "Latest_Public_Comment": "",
-            "Latest_Private_Comment": "System : Dear kushal bedekar,     An Empanelment request raised by operation team, with the  ticket ID  as – 617093  Please find the  details below for your reference   Zone – WestZone   Pincode  – 400606   Area (if any) –    Other Details(if any) -        Thanks     Team Alinea Healthcare"
-        }
-        empanelment_docu = fdticket_collection.insert_one(formData)
+        decoded_data = json.loads(formData.decode('utf-8'))
+        empanelment_docu = fdticket_collection.insert_one(decoded_data)
         print(empanelment_docu)
         serializer_data = {
             "status": "Success",
