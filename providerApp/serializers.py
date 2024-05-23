@@ -75,4 +75,5 @@ class candidateDCFormSerializer(serializers.Serializer):
     contactName = serializers.CharField(max_length=250)
     contactEmailId = serializers.EmailField()
     contactMobileNumber = serializers.CharField(max_length=20)
+    # pass
     

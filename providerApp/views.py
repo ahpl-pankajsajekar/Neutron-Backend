@@ -16,7 +16,7 @@ from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPerm
 from docusign.ds_jwt_auth import docusign_JWT_Auth
 from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
 from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer
-from .models import neutron_collection, selfEmpanelment_collection, testName_collection
+from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection
 
 from rest_framework.permissions import IsAuthenticated
 from pymongo.errors import DuplicateKeyError
@@ -522,6 +522,13 @@ class selfEmpanelmentDetailAPIView(APIView):
                         pass
                 providerData['documentVerifiedStatusByNetwork'] = documentVerifiedStatusByNetwork
                 providerData['verificationRemarkByNetwork'] = document['verificationRemarkByNetwork']
+                
+                print("---",providerData['verificationRemarkByNetwork'])
+                # after legal partil verify show remark in network user
+                if document['DCVerificationStatus'] == 'verify':
+                    if 'verificationRemarkByLegal' in document:
+                        if  document['DCVerificationStatusByLegal'] == 'partialVerify':
+                            providerData['verificationRemarkByNetwork'] = document['verificationRemarkByLegal']
 
             if document:
                 response_data = {
@@ -646,6 +653,7 @@ class SelfEmpanelmentSelect(APIView):
         total_selfEmpanelment_pending_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True},  filter_query_by_user: "pending", "zone": user_zone })
         total_selfEmpanelment_verify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "verify", "zone": user_zone })
         total_selfEmpanelment_partialVerify_cursor = selfEmpanelment_collection.find({filter_query_by_user: { '$exists': True}, filter_query_by_user: "partialVerify", "zone": user_zone })
+        total_selfEmpanelment_partialVerifiedByLegal_cursor = selfEmpanelment_collection.find({'DCVerificationStatusByLegal': { '$exists': True}, 'DCVerificationStatusByLegal': "partialVerify",  filter_query_by_user: "verify", "zone": user_zone, })
         
         total_selfEmpanelment_pending_list = []
         for document in total_selfEmpanelment_pending_cursor:
@@ -698,12 +706,34 @@ class SelfEmpanelmentSelect(APIView):
             if 'verifiedByNetworkDate' in document:
                 filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
             total_selfEmpanelment_partialVerify_list.append(filtered_data)
+        total_selfEmpanelment_partialVerifiedByLegal_list = []
+        for document in total_selfEmpanelment_partialVerifiedByLegal_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "id": str(document["_id"]),  # Convert ObjectId to string if needed
+                "providerName": document["providerName"],
+                "DCID": document["DCID"],
+                "pincode": document["pincode"],
+                "address": document["address1"],
+            }
+            if 'verifiedByNetworkUser' in document:
+                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            if 'updated_at' in document:
+                filtered_data["updated_at"] = document['updated_at']
+            if 'verifiedByNetworkDate' in document:
+                filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
+            if 'verifiedByLegalDate' in document:
+                filtered_data["verifiedByLegalDate"] = document['verifiedByLegalDate']
+            if 'verifiedByLegalUser' in document:
+                filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
+            total_selfEmpanelment_partialVerifiedByLegal_list.append(filtered_data)
 
         network_analytics = {
             # "total" : total_selfEmpanelment,
             "pending" : total_selfEmpanelment_pending_list,
             "verify" : total_selfEmpanelment_verify_list,
             "partialVerify": total_selfEmpanelment_partialVerify_list, 
+            "partialVerifiedByLegal": total_selfEmpanelment_partialVerifiedByLegal_list, 
         }
         providerData = []
         for document in cursor:
@@ -1346,9 +1376,10 @@ class docusignAgreementSentAPIView(APIView):
             'FirmType' : empanelment_docu['FirmType'],
             }
         date_on_stamp_paper = empanelment_docu.get('dateOnStampPaper')
-        if date_on_stamp_paper:
-            date_on_stamp_paper = datetime.datetime.strptime(date_on_stamp_paper, '%Y-%m-%d').date() 
-        else:
+        try: 
+            if date_on_stamp_paper:
+                date_on_stamp_paper = datetime.datetime.strptime(date_on_stamp_paper, '%Y-%m-%d').date() 
+        except:
             date_on_stamp_paper = datetime.datetime.today()
         DC_data['stamp_day'] = date_on_stamp_paper.day
         DC_data['stamp_month'] = date_on_stamp_paper.strftime("%B")  # month name
@@ -1364,8 +1395,8 @@ class docusignAgreementSentAPIView(APIView):
             'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT[0], # tupple
             'documentName' : dc_name,
             'documentExtension' : 'html',
-            'dc_signer_email' : dc_email,
-            # 'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            # 'dc_signer_email' : dc_email,
+            'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'dc_signer_name' : dc_name,
             'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'authority_signer_name' : 'Pankaj Sajekar',
@@ -1570,21 +1601,68 @@ class SaveIntoDBAndViewDocusignDocumentContentAPIView(APIView):
                 return Response({'pdf_content':pdf_content, "DC_name": DC_providerName}, status=status.HTTP_200_OK)
             
 
-class candidateDCFormAPIView(APIView):
+class DocusignEnvelopeWebhookAPIView(APIView):
     def post(self, request, *args, **kwargs):
         formData = request.body
+        formData1 = {
+            "event": "envelope-completed",
+            "apiVersion": "v2.1",
+            "uri": "/restapi/v2.1/accounts/9777bc04-36c8-4382-b4f4-e9103ae0a500/envelopes/9fb1e191-fbb0-4de7-b122-9116c49a2ad2",
+            "retryCount": 0,
+            "configurationId": 10558742,
+            "generatedDateTime": "2024-05-21T10:14:36.9625465Z",
+            "data": {
+                "accountId": "9777bc04-36c8-4382-b4f4-e9103ae0a500",
+                "userId": "4b9f7e3a-e628-4427-8e46-3313b9141502",
+                "envelopeId": "9fb1e191-fbb0-4de7-b122-9116c49a2ad2"
+            }
+        }
+        envelope_status_time = formData['generatedDateTime']
+        envelope_status = str(formData['event']).split('-')[1]
+        print('--------\n', envelope_status)
+        envelopeId = formData['data']['envelopeId']
+        print('--------\n', envelopeId)
+        envelope = {
+                'status' : envelope_status,
+                'time' : envelope_status_time,
+                },
+        update_data = {
+            'ds_envelope_status': envelope_status,
+            'envelope_status' : []
+        }
+        update_data["envelope_status"].append(envelope)
+        print(update_data)
+        empanelment_docu = selfEmpanelment_collection.update_one({'ds_envelope_envelopeId': envelopeId}, {'$set': update_data })
+        print(empanelment_docu)
+        serializer_data = {
+            "status": "Success",
+            "message": "docusign webhook",
+            "serviceName": "DocusignEnvelopeWebhookAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_200_OK,
+        }
+        return Response(serializer_data, status=status.HTTP_200_OK)
+
+class candidateDCFormAPIView(APIView):
+
+    IsAuthenticated = [CustomIsAuthenticatedPermission]
+
+    def post(self, request, *args, **kwargs):
+        formData = request.body
+        _user = request.customMongoUser
+        if _user:
+            email = _user['email']
         serializer = candidateDCFormSerializer(data=formData)
         if not serializer.is_valid:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        add_data = {
-        }
-
         fd_create_ticket_body_data = {
             "status": 3,
             "priority": 1,
             "subject": "Testing from postman for project neutron",
-            "requester_id": 89008796442,
+            # "email" : "kushal.bedekar@alineahealthcare.in",
+            "email": email,
+            # "requester_id": 89008796442,
             "cc_emails": ["faraz.khan@alineahealthcare.in"]
         }
         # CreateTicketFunction(fd_create_ticket_body_data)
@@ -1598,4 +1676,28 @@ class candidateDCFormAPIView(APIView):
             "code": status.HTTP_201_CREATED,
         }
         return Response(serializer_data, status=status.HTTP_201_CREATED)
-        
+
+
+class FreshDeskGetTicketWebhookAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        formData = request.body
+        formData1 = {
+            "Ticket_Id": "617093",
+            "Subject": "DC Empanelment request",
+            "Agent_Name": "kushal bedekar",
+            "Description": "Not given.",
+            "Priority_1": "Low",
+            "Latest_Public_Comment": "",
+            "Latest_Private_Comment": "System : Dear kushal bedekar,     An Empanelment request raised by operation team, with the  ticket ID  as – 617093  Please find the  details below for your reference   Zone – WestZone   Pincode  – 400606   Area (if any) –    Other Details(if any) -        Thanks     Team Alinea Healthcare"
+        }
+        empanelment_docu = fdticket_collection.insert_one(formData)
+        print(empanelment_docu)
+        serializer_data = {
+            "status": "Success",
+            "message": "FreshDesk webhook",
+            "serviceName": "FreshDeskGetTicketWebhookAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": status.HTTP_200_OK,
+        }
+        return Response(serializer_data, status=status.HTTP_200_OK)
+

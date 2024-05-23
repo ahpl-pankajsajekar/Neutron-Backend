@@ -77,7 +77,7 @@ class UserRegistrationAPIView(APIView):
             return Response(response_data)
         
         except DuplicateKeyError:
-            error_detail = "Duplicate key error: This email is already registered."
+            error_detail = "This email is already registered."
             return Response({'error': error_detail}, status=400)   
 
 
