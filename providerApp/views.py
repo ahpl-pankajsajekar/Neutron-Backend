@@ -16,7 +16,7 @@ from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPerm
 from docusign.ds_jwt_auth import docusign_JWT_Auth
 from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
 from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer
-from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection
+from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection, fdticketlogs_collection
 
 from rest_framework.permissions import IsAuthenticated
 from pymongo.errors import DuplicateKeyError
@@ -1660,11 +1660,16 @@ class candidateDCFormAPIView(APIView):
         fd_create_ticket_body_data = {
             "status": 3,
             "priority": 1,
-            "subject": "Testing from postman for project neutron",
+            "subject": "Developement DC Empanelment request",
             # "email" : "kushal.bedekar@alineahealthcare.in",
             "email": email,
             # "requester_id": 89008796442,
-            "cc_emails": ["faraz.khan@alineahealthcare.in"]
+            "description": formData['remark'],
+            "custom_fields":{
+                "cf_diagnostic_centre_pincode": formData['pincode'],
+                "cf_select_your_zone ": formData['zone'],
+            },
+            # "cc_emails": ["faraz.khan@alineahealthcare.in"]
         }
         # CreateTicketFunction(fd_create_ticket_body_data)
 
@@ -1679,18 +1684,113 @@ class candidateDCFormAPIView(APIView):
         return Response(serializer_data, status=status.HTTP_201_CREATED)
 
 
-class FreshDeskGetTicketWebhookAPIView(APIView):
+class FreshDeskGetTicketCreatedWebhookAPIView(APIView):
     def post(self, request, *args, **kwargs):
         formData = request.body
         decoded_data = json.loads(formData.decode('utf-8'))
-        empanelment_docu = fdticket_collection.insert_one(decoded_data)
-        print(empanelment_docu)
+        ticket_docu = fdticket_collection.insert_one(decoded_data)
+        print(ticket_docu)
         serializer_data = {
             "status": "Success",
             "message": "FreshDesk webhook",
             "serviceName": "FreshDeskGetTicketWebhookAPIView_Service",
             "timeStamp": datetime.datetime.now().isoformat(),
-            "code": status.HTTP_200_OK,
+            "code": 201,
+        }
+        return Response(serializer_data, status=status.HTTP_201_CREATED)
+    
+class FreshDeskGetTicketUpdateWebhookAPIView(APIView):
+    def put(self, request, *args, **kwargs):
+        formData = request.body
+        decoded_data = json.loads(formData.decode('utf-8'))
+        updated_data = decoded_data
+        print(updated_data)
+        try:
+            try:
+                ticket_docu = fdticket_collection.update_one({'Ticket_Id': updated_data['Ticket_Id']}, {'$set': updated_data})
+                print(ticket_docu)
+            except:
+                pass
+            ticketlogs_docu = fdticketlogs_collection.insert_one(updated_data)
+            print(ticketlogs_docu)
+        except:
+            pass
+        serializer_data = {
+            "status": "Success",
+            "message": "FreshDesk webhook Update",
+            "serviceName": "FreshDeskGetTicketUpdateWebhookAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": 200,
         }
         return Response(serializer_data, status=status.HTTP_200_OK)
 
+
+class ShowAllTicketsAPIView(APIView):
+    def get(self, request):
+        # ticket_cursor = fdticket_collection.find()
+        # print(ticket_cursor)
+        
+        newTickets_cursor = fdticket_collection.find({"ticketStatus": {"$exists": True}, "ticketStatus": "pending"})
+        newTickets_list = []
+        for document in newTickets_cursor:
+            filtered_data = {
+                "ticketID": document["ticketID"],
+                "requestedDate": document["requestedDate"],
+                "pincode": document["pincode"],
+            }
+            newTickets_list.append(filtered_data)
+        openTickets_cursor = fdticket_collection.find({"ticketStatus": {"$exists": True}, "ticketStatus": "open"})
+        openTickets_list = []
+        for document in openTickets_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "ticketID": document["ticketID"],
+                "requestedDate": document["requestedDate"],
+                "pincode": document["pincode"],
+                "providerName": document["providerName"],
+                "ticketStatus": document["ticketStatus"],
+            }
+            openTickets_list.append(filtered_data)
+        closedTickets_cursor = fdticket_collection.find({"ticketStatus": {"$exists": True}, "ticketStatus": "closed"})
+        closeTickets_list = []
+        for document in closedTickets_cursor:
+            # Filter specific fields here
+            filtered_data = {
+                "ticketID": document["ticketID"],
+                "requestedDate": document["requestedDate"],
+                "pincode": document["pincode"],
+                "providerName": document["providerName"],
+                "closedDate": document["closedDate"],
+            }
+            closeTickets_list.append(filtered_data)
+
+        ticketsData = {
+            "newTickets" : newTickets_list,
+            "openTickets" : openTickets_list,
+            "closeTickets" : closeTickets_list,
+        }
+        serializer_data = {
+            "status": "Success",
+            "data": ticketsData,
+            "message": "All Tickets Data Retrived successfully",
+            "serviceName": "ShowAllTicketsAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": 200,
+        }
+        return Response(serializer_data, status=status.HTTP_200_OK)
+
+
+class TicketDetailsAPIView(APIView):
+    def get(self, request):
+        ticket_id = request.query_params.get('id')
+        TicketsCursor = fdticket_collection.find({'ticket_id': ticket_id})
+        serializer_data = {
+            "status": "Success",
+            "data": json.loads(json_util.dumps(TicketsCursor)),
+            "message": "Tickets Data Retrived successfully",
+            "serviceName": "TicketDetailsAPIView_Service",
+            "timeStamp": datetime.datetime.now().isoformat(),
+            "code": 200,
+        }
+        return Response(serializer_data, status=status.HTTP_200_OK)
+        

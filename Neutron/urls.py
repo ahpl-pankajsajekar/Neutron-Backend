@@ -17,8 +17,8 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('providerApp.urls')),
-    path('api/account/', include('Account.urls')),
+    path('neutron/admin/', admin.site.urls),
+    path('neutron/', include('providerApp.urls')),
+    path('neutron/api/account/', include('Account.urls')),
     # path('mongo_auth/', include('mongo_auth.urls')),
 ]
