@@ -52,6 +52,7 @@ urlpatterns = [
     # Docusign Agreement  save pdf and view
     path('docusignAgreement/envelope/document/saveAndview/', views.SaveIntoDBAndViewDocusignDocumentContentAPIView.as_view()),
 
+    # webhook
     path('docusignAgreement/envelope/webhook/', views.DocusignEnvelopeWebhookAPIView.as_view()),
     path('freshdesk/webhook/', views.FreshDeskGetTicketCreatedWebhookAPIView.as_view()),
     path('freshdesk/webhook/ticket/', views.FreshDeskGetTicketUpdateWebhookAPIView.as_view()),
@@ -60,4 +61,5 @@ urlpatterns = [
 
     # tickets
     path('tickets/', views.ShowAllTicketsAPIView.as_view() ),
+    path('operation/ticket/', views.TicketCreatedAPIView.as_view() ),
 ]

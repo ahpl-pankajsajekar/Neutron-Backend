@@ -77,3 +77,8 @@ class candidateDCFormSerializer(serializers.Serializer):
     contactMobileNumber = serializers.CharField(max_length=20)
     # pass
     
+
+class operationTicketSerializer(serializers.Serializer):
+    zone = serializers.CharField(max_length=50)
+    pincode = serializers.CharField(max_length=10)
+    remark = serializers.CharField(max_length=500)

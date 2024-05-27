@@ -15,7 +15,7 @@ from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPermission, IsNetworkUserPermission
 from docusign.ds_jwt_auth import docusign_JWT_Auth
 from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
-from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer
+from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer, operationTicketSerializer
 from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection, fdticketlogs_collection
 
 from rest_framework.permissions import IsAuthenticated
@@ -118,6 +118,7 @@ def CreateTicketFunction(fd_body_data):
             'Content-Type': 'application/json',
             'Authorization': f'Basic {auth_encoded}'
         }
+        # fd_body_data = fd_body_data
         response = requests.post(url, json=fd_body_data, headers=headers)
         res = response.json()
         if response.status_code == 201:
@@ -1727,41 +1728,40 @@ class FreshDeskGetTicketUpdateWebhookAPIView(APIView):
 
 class ShowAllTicketsAPIView(APIView):
     def get(self, request):
-        # ticket_cursor = fdticket_collection.find()
-        # print(ticket_cursor)
-        
-        newTickets_cursor = fdticket_collection.find({"ticketStatus": {"$exists": True}, "ticketStatus": "pending"})
+        newTickets_cursor = fdticket_collection.find({"Status": {"$exists": True}, "Status": "Pending"})
         newTickets_list = []
         for document in newTickets_cursor:
             filtered_data = {
-                "ticketID": document["ticketID"],
-                "requestedDate": document["requestedDate"],
-                "pincode": document["pincode"],
+                "Ticket_Id": document["Ticket_Id"],
+                "requestedDate": document["created_at"],
+                "pincode": document["DignosticCenter_Pincode"],
             }
             newTickets_list.append(filtered_data)
-        openTickets_cursor = fdticket_collection.find({"ticketStatus": {"$exists": True}, "ticketStatus": "open"})
+        openTickets_cursor = fdticket_collection.find({"Status": {"$exists": True}, "Status": "Open"})
         openTickets_list = []
         for document in openTickets_cursor:
-            # Filter specific fields here
             filtered_data = {
-                "ticketID": document["ticketID"],
-                "requestedDate": document["requestedDate"],
-                "pincode": document["pincode"],
-                "providerName": document["providerName"],
-                "ticketStatus": document["ticketStatus"],
+                "Ticket_Id": document["Ticket_Id"],
+                "requestedDate": document["created_at"],
+                "pincode": document["DignosticCenter_Pincode"],
+                "Status": document["Status"],
             }
+            if "providerName" in  document:
+                filtered_data['providerName'] = document["providerName"]
             openTickets_list.append(filtered_data)
-        closedTickets_cursor = fdticket_collection.find({"ticketStatus": {"$exists": True}, "ticketStatus": "closed"})
+        closedTickets_cursor = fdticket_collection.find({"Status": {"$exists": True}, "Status": "Closed"})
         closeTickets_list = []
         for document in closedTickets_cursor:
             # Filter specific fields here
             filtered_data = {
-                "ticketID": document["ticketID"],
-                "requestedDate": document["requestedDate"],
-                "pincode": document["pincode"],
-                "providerName": document["providerName"],
-                "closedDate": document["closedDate"],
+                "Ticket_Id": document["Ticket_Id"],
+                "requestedDate": document["created_at"],
+                "pincode": document["DignosticCenter_Pincode"],
             }
+            if "providerName" in  document:
+                filtered_data['providerName'] = document["providerName"]
+            if "closedDate" in  document:
+                filtered_data['closedDate'] = document["closedDate"]
             closeTickets_list.append(filtered_data)
 
         ticketsData = {
@@ -1778,6 +1778,46 @@ class ShowAllTicketsAPIView(APIView):
             "code": 200,
         }
         return Response(serializer_data, status=status.HTTP_200_OK)
+
+
+class TicketCreatedAPIView(APIView):
+    IsAuthenticated = [CustomIsAuthenticatedPermission]
+    def post(self, request, *args, **kwargs):
+        try:
+            formData = request.body
+            _user = request.customMongoUser
+            formData = json.loads(formData.decode('utf-8'))
+            serializer = operationTicketSerializer(data=formData)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if _user:
+                email = _user['email']
+                fd_create_ticket_body_data = {
+                    "status": 3, # pending - 3, open - 2
+                    "priority": 1, # low - 1
+                    "subject": "DC Empanelment request",
+                    # "email" : "kushal.bedekar@alineahealthcare.in",
+                    "email": email,
+                    "description": formData['remark'],
+                    "custom_fields":{
+                        "cf_diagnostic_centre_pincode": formData['pincode'],
+                        "cf_select_your_zone" : formData['zone']
+                    },
+                    "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
+                }
+                # print(fd_create_ticket_body_data)
+                res = CreateTicketFunction(fd_create_ticket_body_data)
+                serializer_data = {
+                    "status": "Success",
+                    "data": res['data'],
+                    "message": "Ticket Created",
+                    "serviceName": "TicketCreatedAPIView_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                }
+                return Response(serializer_data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class TicketDetailsAPIView(APIView):
