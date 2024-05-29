@@ -1,3 +1,4 @@
+import time
 from django.shortcuts import render
 import pymongo
 from rest_framework.response import Response
@@ -666,8 +667,8 @@ class SelfEmpanelmentSelect(APIView):
                 "pincode": document["pincode"],
                 "address": document["address1"],
             }
-            if 'verifiedByNetworkUser' in document:
-                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            # if 'verifiedByNetworkUser' in document:
+            #     filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             if 'updated_at' in document:
                 filtered_data["updated_at"] = document['updated_at']
             if 'verifiedByNetworkDate' in document:
@@ -683,8 +684,8 @@ class SelfEmpanelmentSelect(APIView):
                 "pincode": document["pincode"],
                 "address": document["address1"],
             }
-            if 'verifiedByNetworkUser' in document:
-                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            # if 'verifiedByNetworkUser' in document:
+            #     filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             if 'updated_at' in document:
                 filtered_data["updated_at"] = document['updated_at']
             if 'verifiedByNetworkDate' in document:
@@ -717,16 +718,16 @@ class SelfEmpanelmentSelect(APIView):
                 "pincode": document["pincode"],
                 "address": document["address1"],
             }
-            if 'verifiedByNetworkUser' in document:
-                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            # if 'verifiedByNetworkUser' in document:
+            #     filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             if 'updated_at' in document:
                 filtered_data["updated_at"] = document['updated_at']
             if 'verifiedByNetworkDate' in document:
                 filtered_data["verifiedByNetworkDate"] = document['verifiedByNetworkDate']
             if 'verifiedByLegalDate' in document:
                 filtered_data["verifiedByLegalDate"] = document['verifiedByLegalDate']
-            if 'verifiedByLegalUser' in document:
-                filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
+            # if 'verifiedByLegalUser' in document:
+            #     filtered_data["verifiedByLegalUser"] = UserMasterCollection.find_one({"_id":document["verifiedByLegalUser"]})['name']
             total_selfEmpanelment_partialVerifiedByLegal_list.append(filtered_data)
 
         network_analytics = {
@@ -744,8 +745,8 @@ class SelfEmpanelmentSelect(APIView):
                 "providerName": document["providerName"],
                 "DCID": document["DCID"],
             }
-            if 'verifiedByNetworkUser' in document:
-                filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
+            # if 'verifiedByNetworkUser' in document:
+            #     filtered_data["verifiedByNetworkUser"] = UserMasterCollection.find_one({"_id":document["verifiedByNetworkUser"]})['name']
             providerData.append(filtered_data)
 
         response={
@@ -1728,16 +1729,17 @@ class FreshDeskGetTicketUpdateWebhookAPIView(APIView):
 
 class ShowAllTicketsAPIView(APIView):
     def get(self, request):
-        newTickets_cursor = fdticket_collection.find({"Status": {"$exists": True}, "Status": "Pending"})
+        newTickets_cursor = fdticket_collection.find({"Status": {"$exists": True, "$in": ["Open"]}})
         newTickets_list = []
         for document in newTickets_cursor:
             filtered_data = {
                 "Ticket_Id": document["Ticket_Id"],
                 "requestedDate": document["created_at"],
                 "pincode": document["DignosticCenter_Pincode"],
+                "zone": document["DignosticCenter_Zone"],
             }
             newTickets_list.append(filtered_data)
-        openTickets_cursor = fdticket_collection.find({"Status": {"$exists": True}, "Status": "Open"})
+        openTickets_cursor = fdticket_collection.find({"Status": {"$exists": True, "$nin": ["Open", "Closed"]}})
         openTickets_list = []
         for document in openTickets_cursor:
             filtered_data = {
@@ -1745,11 +1747,12 @@ class ShowAllTicketsAPIView(APIView):
                 "requestedDate": document["created_at"],
                 "pincode": document["DignosticCenter_Pincode"],
                 "Status": document["Status"],
+                "zone": document["DignosticCenter_Zone"],
             }
-            if "providerName" in  document:
-                filtered_data['providerName'] = document["providerName"]
+            if "DignosticCenter_ProviderName" in  document:
+                filtered_data['providerName'] = document["DignosticCenter_ProviderName"]
             openTickets_list.append(filtered_data)
-        closedTickets_cursor = fdticket_collection.find({"Status": {"$exists": True}, "Status": "Closed"})
+        closedTickets_cursor = fdticket_collection.find({"Status": {"$exists": True, "$in": ["Closed"]}})
         closeTickets_list = []
         for document in closedTickets_cursor:
             # Filter specific fields here
@@ -1757,9 +1760,10 @@ class ShowAllTicketsAPIView(APIView):
                 "Ticket_Id": document["Ticket_Id"],
                 "requestedDate": document["created_at"],
                 "pincode": document["DignosticCenter_Pincode"],
+                "zone": document["DignosticCenter_Zone"],
             }
-            if "providerName" in  document:
-                filtered_data['providerName'] = document["providerName"]
+            if "DignosticCenter_ProviderName" in  document:
+                filtered_data['providerName'] = document["DignosticCenter_ProviderName"]
             if "closedDate" in  document:
                 filtered_data['closedDate'] = document["closedDate"]
             closeTickets_list.append(filtered_data)
@@ -1793,7 +1797,7 @@ class TicketCreatedAPIView(APIView):
             if _user:
                 email = _user['email']
                 fd_create_ticket_body_data = {
-                    "status": 3, # pending - 3, open - 2
+                    "status": 2, # pending - 3, open - 2
                     "priority": 1, # low - 1
                     "subject": "DC Empanelment request",
                     # "email" : "kushal.bedekar@alineahealthcare.in",
@@ -1822,15 +1826,144 @@ class TicketCreatedAPIView(APIView):
 
 class TicketDetailsAPIView(APIView):
     def get(self, request):
-        ticket_id = request.query_params.get('id')
-        TicketsCursor = fdticket_collection.find({'ticket_id': ticket_id})
-        serializer_data = {
-            "status": "Success",
-            "data": json.loads(json_util.dumps(TicketsCursor)),
-            "message": "Tickets Data Retrived successfully",
-            "serviceName": "TicketDetailsAPIView_Service",
-            "timeStamp": datetime.datetime.now().isoformat(),
-            "code": 200,
-        }
-        return Response(serializer_data, status=status.HTTP_200_OK)
+        try:
+            ticket_id = request.query_params.get('id')
+            TicketsCursor = fdticket_collection.find({'Ticket_Id': ticket_id})
+            serializer_data = {
+                "status": "Success",
+                "data": json.loads(json_util.dumps(TicketsCursor)),
+                "message": "Tickets Data Retrived successfully",
+                "serviceName": "TicketDetailsAPIView_Service",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": 200,
+            }
+            return Response(serializer_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+# view ticket not specify where to used
+class ProspectiveProviderGetTicketAPIView(APIView):
+    def get(self, request):
+        try:
+            TicketsCursor = fdticket_collection.find({'status': {'$exist': True, '$in': ['Open']}})
+            serializer_data = {
+                "status": "Success",
+                "data": json.loads(json_util.dumps(TicketsCursor)),
+                "message": "Tickets Data Retrived successfully",
+                "serviceName": "ProspectiveProviderTicketAPIView_Service",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": 200,
+            }
+            return Response(serializer_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# create child ticket
+class AddProspectiveProviderAPIView(APIView):
+     def post(self, request, *args, **kwargs):
+        try:
+            formData = request.body
+            parent_ticket_id = int(request.query_params.get('parent_ticket_id', 657231))
+            _user = request.customMongoUser
+            formData = json.loads(formData.decode('utf-8'))
+            # serializer = operationTicketSerializer(data=formData)
+            # if not serializer.is_valid():
+            #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if _user and not parent_ticket_id==None:
+                email = _user['email']
+                fd_create_ticket_body_data = {
+                    "status": 2, # pending - 3, open - 2
+                    "priority": 1, # low - 1
+                    # "group_id": "Test DC Empanelment",  # provider integer field
+                    "subject": "DC Empanelment request",
+                    "parent_id": int(parent_ticket_id),
+                    "email": email,
+                    "description": formData['remark'],
+                    "custom_fields":{
+                        "cf_diagnostic_centre_name": formData['providerName'],
+                        "cf_diagnostic_centre_pincode": formData['pincode'],
+                        "cf_select_your_zone" : formData['zone'],
+                        "cf_diagnostic_centre_state": formData['state'],
+                        "cf_diagnostic_centre_city": formData['city'],
+                        "cf_flscontact": formData['contactPersonName'],
+                        "cf_diagnostic_centre_contact_number": formData['contactNumber'],
+                        "cf_diagnostic_center_email_id": formData['contactEmailID'],
+                    },
+                    "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
+                }
+                # print(fd_create_ticket_body_data)
+                res = CreateTicketFunction(fd_create_ticket_body_data)
+                # res = { 'data' : { 'id': 660545}}
+                # print(res)
+                ### add parent_id in database Tickets collections
+                # time.sleep(2)
+                # ticket_id = res['data']['id']
+                # updateData = {'parent_id': int(parent_ticket_id) }
+                # ticket_result = fdticket_collection.update_one({'ticket_id': str(ticket_id)}, {'$set': updateData })
+                # print(ticket_result)
+                serializer_data = {
+                    "status": "Success",
+                    "data": res['data'],
+                    "message": "Child Ticket Created for AddProspectiveProvider",
+                    "serviceName": "AddProspectiveProviderAPIView_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                }
+                return Response(serializer_data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# list of child ticket for ProspectiveProvider
+class ProspectiveProviderGetChildTicketsAPIView(APIView):
+    def get(self, request):
+        try: 
+            parent_ticket_id = request.query_params.get('parent_ticket_id', 657231)
+            Tickets_cursor = fdticket_collection.find({"parent_id": { '$exists': True, '$in': [int(parent_ticket_id)] }})
+            tickets_Data = []
+            for ticket in Tickets_cursor:
+                filter_data = {
+                    "Ticket_Id": ticket["Ticket_Id"],
+                    "Subject": ticket["Subject"],
+                    "DignosticCenter_State": ticket["DignosticCenter_State"],
+                    "DignosticCenter_Zone": ticket["DignosticCenter_Zone"],
+                }
+                if 'DignosticCenter_ProviderName' in ticket:
+                    tickets_Data["DignosticCenter_ProviderName"] = ticket["DignosticCenter_ProviderName"]
+                tickets_Data.append(filter_data)
+            serializer_data = {
+                    "status": "Success",
+                    "data": tickets_Data,
+                    "message": "View All Child Ticket for AddProspectiveProvider",
+                    "serviceName": "AddProspectiveProviderAPIView_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": status.HTTP_201_CREATED,
+                }
+            return Response(serializer_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# update ticket status
+class ProspectiveProviderTicketUpdateAPIView(APIView):
+    def put(self, request):
+        try:
+            fromData = request.body
+            ticket_id = fromData['ticket_id']
+            if ticket_id:
+                fd_ticket_body_data = {
+                        "status": 49,
+                    }
+                ticketStatusUpdate(ticket_id, fd_ticket_body_data)
+            else:
+                return Response("Ticket ID Not found.", status=status.HTTP_400_BAD_REQUEST)
+            serializer_data = {
+                "status": "Success",
+                # "data": json.loads(json_util.dumps(TicketsCursor)),
+                "message": "Tickets status update successfully",
+                "serviceName": "ProspectiveProviderTicketUpdateAPIView_Service",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": 200,
+            }
+            return Response(serializer_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

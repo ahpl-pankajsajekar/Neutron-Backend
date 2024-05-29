@@ -11,6 +11,7 @@ UserRole_CHOICES =(
     (1, "Network"),  
     (2, "Legal"),  
     (3, "IT"),  
+    (4, "Operation"),  
 ) 
 zone_choice =(  
     ('NorthZone', "NorthZone"),  

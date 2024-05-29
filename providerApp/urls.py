@@ -58,8 +58,13 @@ urlpatterns = [
     path('freshdesk/webhook/ticket/', views.FreshDeskGetTicketUpdateWebhookAPIView.as_view()),
 
     path('candidateForm/ticket/', views.candidateDCFormAPIView.as_view() ),
-
+    
+    path('prospectiveprovider/tickets/', views.ProspectiveProviderGetChildTicketsAPIView.as_view()), 
+    path('prospectiveprovider/ticket/', views.ProspectiveProviderTicketUpdateAPIView.as_view()),  # update ticket 
+    
     # tickets
     path('tickets/', views.ShowAllTicketsAPIView.as_view() ),
     path('operation/ticket/', views.TicketCreatedAPIView.as_view() ),
+    path('network/ticket/child/', views.AddProspectiveProviderAPIView.as_view() ),  # create child ticket
+    path('ticket/', views.TicketDetailsAPIView.as_view() ),
 ]
