@@ -123,9 +123,44 @@ def CreateTicketFunction(fd_body_data):
         response = requests.post(url, json=fd_body_data, headers=headers)
         res = response.json()
         if response.status_code == 201:
+            ticket = res
+            createTicket_data = {
+                "Ticket_Id": ticket['id'],
+                "Subject": ticket['subject'],
+                "Status_ID": ticket['status'],
+                "Description": ticket['description_text'],
+                "Description_Html": ticket['description'],
+                "Priority_ID": ticket['priority'],
+                "Group_ID": ticket['group_id'],
+                "Source_ID": ticket['source'],
+                "Requester_Address": ticket['custom_fields']['cf_customer_address'],
+                "DignosticCenter_ProviderName": ticket['custom_fields']['cf_diagnostic_centre_name'],
+                "DignosticCenter_Pincode": ticket['custom_fields']['cf_diagnostic_centre_pincode'],
+                "DignosticCenter_Zone": ticket['custom_fields']['cf_select_your_zone'],
+                "DignosticCenter_State": ticket['custom_fields']['cf_diagnostic_centre_state'],
+                "DignosticCenter_City": ticket['custom_fields']['cf_diagnostic_centre_city'],
+                "DignosticCenter_presentremark": ticket['custom_fields']['cf_presentremark'],
+                "DignosticCenter_EmailId": ticket['custom_fields']['cf_diagnostic_center_email_id'],
+                "DignosticCenter_Address": ticket['custom_fields']['cf_diagnostic_centre_address'],
+                "DignosticCenter_ContactNumber": ticket['custom_fields']['cf_diagnostic_centre_contact_number'],
+                "cf_flscontact": ticket['custom_fields']['cf_flscontact'],
+                "Priority": ticket['custom_fields']['cf_priority'],
+                "start_time": ticket['custom_fields']['cf_start_time'],
+                "end_time": ticket['custom_fields']['cf_end_time'],
+                "tags": ticket['tags'],
+                "to_emails": ticket['to_emails'],
+                "due_by": ticket['due_by'],
+                "created_at": ticket['created_at'],
+                "updated_at": ticket['updated_at'],
+            }
+            if "associated_tickets_list" in ticket:
+                createTicket_data.update({"associated_tickets_list": ticket['associated_tickets_list']})
+                createTicket_data.update({"association_type": ticket['association_type']})
+            ticket_docu = fdticket_collection.insert_one(createTicket_data)
+            print(ticket_docu)
             response_data = {
                 "status":  "Successful",
-                "data":  res,
+                "data":  createTicket_data,
                 "message":  "Ticket Created successfully!",
             }
         else:
@@ -1713,8 +1748,8 @@ class FreshDeskGetTicketUpdateWebhookAPIView(APIView):
                 print(ticket_docu)
             except:
                 pass
-            ticketlogs_docu = fdticketlogs_collection.insert_one(updated_data)
-            print(ticketlogs_docu)
+            # ticketlogs_docu = fdticketlogs_collection.insert_one(updated_data)
+            # print(ticketlogs_docu)
         except:
             pass
         serializer_data = {
@@ -1811,13 +1846,14 @@ class TicketCreatedAPIView(APIView):
                 }
                 # print(fd_create_ticket_body_data)
                 res = CreateTicketFunction(fd_create_ticket_body_data)
+
                 serializer_data = {
                     "status": "Success",
-                    "data": res['data'],
+                    # "data": res['data'],
                     "message": "Ticket Created",
                     "serviceName": "TicketCreatedAPIView_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_201_CREATED,
+                    "code": 201,
                 }
                 return Response(serializer_data, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -1863,7 +1899,7 @@ class AddProspectiveProviderAPIView(APIView):
      def post(self, request, *args, **kwargs):
         try:
             formData = request.body
-            parent_ticket_id = int(request.query_params.get('parent_ticket_id', 657231))
+            parent_ticket_id = int(request.query_params.get('parent_ticket_id')) or int(formData['parent_ticket_id'])
             _user = request.customMongoUser
             formData = json.loads(formData.decode('utf-8'))
             # serializer = operationTicketSerializer(data=formData)
@@ -1878,7 +1914,7 @@ class AddProspectiveProviderAPIView(APIView):
                     "subject": "DC Empanelment request",
                     "parent_id": int(parent_ticket_id),
                     "email": email,
-                    "description": formData['remark'],
+                    # "description": formData['remark'],
                     "custom_fields":{
                         "cf_diagnostic_centre_name": formData['providerName'],
                         "cf_diagnostic_centre_pincode": formData['pincode'],
@@ -1893,17 +1929,19 @@ class AddProspectiveProviderAPIView(APIView):
                 }
                 # print(fd_create_ticket_body_data)
                 res = CreateTicketFunction(fd_create_ticket_body_data)
-                # res = { 'data' : { 'id': 660545}}
-                # print(res)
-                ### add parent_id in database Tickets collections
-                # time.sleep(2)
-                # ticket_id = res['data']['id']
-                # updateData = {'parent_id': int(parent_ticket_id) }
-                # ticket_result = fdticket_collection.update_one({'ticket_id': str(ticket_id)}, {'$set': updateData })
-                # print(ticket_result)
+
+                # add child in parent ticket
+                ticket_id = res['data']['Ticket_Id']
+                updateData = { 
+                    '$push': 
+                        { 'associated_tickets_list': { '$each': [ticket_id,] } } 
+                    }
+                ticket_result = fdticket_collection.update_one({'ticket_id': str(parent_ticket_id)}, updateData)
+                print(ticket_result)
+
                 serializer_data = {
                     "status": "Success",
-                    "data": res['data'],
+                    # "data": res['data'],
                     "message": "Child Ticket Created for AddProspectiveProvider",
                     "serviceName": "AddProspectiveProviderAPIView_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
@@ -1917,7 +1955,9 @@ class AddProspectiveProviderAPIView(APIView):
 class ProspectiveProviderGetChildTicketsAPIView(APIView):
     def get(self, request):
         try: 
-            parent_ticket_id = request.query_params.get('parent_ticket_id', 657231)
+            parent_ticket_id = request.query_params.get('parent_ticket_id')
+            if not parent_ticket_id:
+                return Response({"error": "Parent ID not Provided"}, status=status.HTTP_400_BAD_REQUEST)
             Tickets_cursor = fdticket_collection.find({"parent_id": { '$exists': True, '$in': [int(parent_ticket_id)] }})
             tickets_Data = []
             for ticket in Tickets_cursor:

@@ -12,4 +12,4 @@ try:
     db = client['ProviderPortalDatabase'] # atlas
     
 except Exception as e:
-    print(e)
+    print("Database Connection Error: ", e)
