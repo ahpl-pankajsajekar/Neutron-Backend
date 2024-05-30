@@ -77,8 +77,24 @@ class candidateDCFormSerializer(serializers.Serializer):
     contactMobileNumber = serializers.CharField(max_length=20)
     # pass
     
-
+zone_choice =(  
+    ('NorthZone', "NorthZone"),  
+    ('SouthZone', "SouthZone"),  
+    ('EastZone', "EastZone"),  
+    ('WestZone', "WestZone"),  
+) 
 class operationTicketSerializer(serializers.Serializer):
-    zone = serializers.CharField(max_length=50)
+    # zone = serializers.CharField(max_length=50)
+    zone = serializers.ChoiceField(choices=zone_choice, required=True)
     pincode = serializers.CharField(max_length=10)
     remark = serializers.CharField(max_length=500)
+
+class CreateChildTicketSerializer(serializers.Serializer):
+    providerName = serializers.CharField(max_length=250)
+    zone = serializers.ChoiceField(choices=zone_choice, required=True)
+    pincode = serializers.CharField(max_length=10)
+    state = serializers.CharField(max_length=50)
+    city = serializers.CharField(max_length=50)
+    contactPersonName = serializers.CharField(max_length=250)
+    contactNumber = serializers.CharField(max_length=20)
+    contactEmailID = serializers.EmailField()

@@ -16,7 +16,7 @@ from Account.models import UserMasterCollection
 from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPermission, IsNetworkUserPermission
 from docusign.ds_jwt_auth import docusign_JWT_Auth
 from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
-from providerApp.serializers import DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer, operationTicketSerializer
+from providerApp.serializers import CreateChildTicketSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer, operationTicketSerializer
 from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection, fdticketlogs_collection
 
 from rest_framework.permissions import IsAuthenticated
@@ -1764,7 +1764,7 @@ class FreshDeskGetTicketUpdateWebhookAPIView(APIView):
 
 class ShowAllTicketsAPIView(APIView):
     def get(self, request):
-        newTickets_cursor = fdticket_collection.find({"Status": {"$exists": True, "$in": ["Open"]}})
+        newTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [2]}})
         newTickets_list = []
         for document in newTickets_cursor:
             filtered_data = {
@@ -1774,20 +1774,20 @@ class ShowAllTicketsAPIView(APIView):
                 "zone": document["DignosticCenter_Zone"],
             }
             newTickets_list.append(filtered_data)
-        openTickets_cursor = fdticket_collection.find({"Status": {"$exists": True, "$nin": ["Open", "Closed"]}})
+        openTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$nin": [2, 5]}})
         openTickets_list = []
         for document in openTickets_cursor:
             filtered_data = {
                 "Ticket_Id": document["Ticket_Id"],
                 "requestedDate": document["created_at"],
                 "pincode": document["DignosticCenter_Pincode"],
-                "Status": document["Status"],
+                "Status_ID": document["Status_ID"],
                 "zone": document["DignosticCenter_Zone"],
             }
             if "DignosticCenter_ProviderName" in  document:
                 filtered_data['providerName'] = document["DignosticCenter_ProviderName"]
             openTickets_list.append(filtered_data)
-        closedTickets_cursor = fdticket_collection.find({"Status": {"$exists": True, "$in": ["Closed"]}})
+        closedTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [5]}})
         closeTickets_list = []
         for document in closedTickets_cursor:
             # Filter specific fields here
@@ -1877,11 +1877,11 @@ class TicketDetailsAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-# view ticket not specify where to used
+# view ticket not specify where to used # currently not using
 class ProspectiveProviderGetTicketAPIView(APIView):
     def get(self, request):
         try:
-            TicketsCursor = fdticket_collection.find({'status': {'$exist': True, '$in': ['Open']}})
+            TicketsCursor = fdticket_collection.find({'Status_ID': {'$exist': True, '$in': ['Open']}})
             serializer_data = {
                 "status": "Success",
                 "data": json.loads(json_util.dumps(TicketsCursor)),
@@ -1899,13 +1899,13 @@ class AddProspectiveProviderAPIView(APIView):
      def post(self, request, *args, **kwargs):
         try:
             formData = request.body
-            parent_ticket_id = int(request.query_params.get('parent_ticket_id')) or int(formData['parent_ticket_id'])
             _user = request.customMongoUser
-            formData = json.loads(formData.decode('utf-8'))
-            # serializer = operationTicketSerializer(data=formData)
-            # if not serializer.is_valid():
-            #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            if _user and not parent_ticket_id==None:
+            formData = json.loads(formData.decode('utf-8'))  # convert data byte formate to dict
+            parent_ticket_id = int(formData['parent_ticket_id'])
+            serializer = CreateChildTicketSerializer(data=formData)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if _user and parent_ticket_id!=None:
                 email = _user['email']
                 fd_create_ticket_body_data = {
                     "status": 2, # pending - 3, open - 2
@@ -1936,7 +1936,7 @@ class AddProspectiveProviderAPIView(APIView):
                     '$push': 
                         { 'associated_tickets_list': { '$each': [ticket_id,] } } 
                     }
-                ticket_result = fdticket_collection.update_one({'ticket_id': str(parent_ticket_id)}, updateData)
+                ticket_result = fdticket_collection.update_one({'Ticket_Id': int(parent_ticket_id)}, updateData)
                 print(ticket_result)
 
                 serializer_data = {
@@ -1955,10 +1955,11 @@ class AddProspectiveProviderAPIView(APIView):
 class ProspectiveProviderGetChildTicketsAPIView(APIView):
     def get(self, request):
         try: 
-            parent_ticket_id = request.query_params.get('parent_ticket_id')
+            parent_ticket_id = int(request.query_params.get('parent_ticket_id'))
             if not parent_ticket_id:
                 return Response({"error": "Parent ID not Provided"}, status=status.HTTP_400_BAD_REQUEST)
-            Tickets_cursor = fdticket_collection.find({"parent_id": { '$exists': True, '$in': [int(parent_ticket_id)] }})
+            filter = {"associated_tickets_list": { '$exists': True, '$in': [parent_ticket_id]}, "association_type": { '$exists': True, '$in': [2]}, }
+            Tickets_cursor = fdticket_collection.find(filter)
             tickets_Data = []
             for ticket in Tickets_cursor:
                 filter_data = {
@@ -1968,32 +1969,43 @@ class ProspectiveProviderGetChildTicketsAPIView(APIView):
                     "DignosticCenter_Zone": ticket["DignosticCenter_Zone"],
                 }
                 if 'DignosticCenter_ProviderName' in ticket:
-                    tickets_Data["DignosticCenter_ProviderName"] = ticket["DignosticCenter_ProviderName"]
+                    filter_data["DignosticCenter_ProviderName"] = ticket["DignosticCenter_ProviderName"]
                 tickets_Data.append(filter_data)
             serializer_data = {
                     "status": "Success",
                     "data": tickets_Data,
                     "message": "View All Child Ticket for AddProspectiveProvider",
-                    "serviceName": "AddProspectiveProviderAPIView_Service",
+                    "serviceName": "ProspectiveProviderGetChildTicketsAPIView_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_201_CREATED,
+                    "code": 200,
                 }
             return Response(serializer_data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+fdTicketdb_updated_at  = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")  # Coordinated Universal Time (UTC)
 # update ticket status
 class ProspectiveProviderTicketUpdateAPIView(APIView):
     def put(self, request):
         try:
             fromData = request.body
+            print(fromData)
+            fromData = json.loads(fromData.decode('utf-8'))
             ticket_id = fromData['ticket_id']
             if ticket_id:
                 fd_ticket_body_data = {
-                        "status": 49,
+                        "status": 48,
                     }
                 ticketStatusUpdate(ticket_id, fd_ticket_body_data)
+                updateData = {
+                     '$set': {
+                        'Status_ID': 48,
+                        'updated_at': str(fdTicketdb_updated_at)
+                        }
+                    }
+                ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticket_id)}, updateData)
+                print(ticket_result)
             else:
                 return Response("Ticket ID Not found.", status=status.HTTP_400_BAD_REQUEST)
             serializer_data = {
