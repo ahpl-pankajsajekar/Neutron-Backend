@@ -77,7 +77,7 @@ class UserLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid login credentials or you are not registered")
         
         # Generate JWT token
-        token = generate_jwt_token(email, user.get('name'), user.get('role'))
+        token = generate_jwt_token(user.get('email'), user.get('name'), user.get('role'))
         # update last login 
         if user:
             UserMasterCollection.update_one({'email': email}, {'$set': {"last_login_at": datetime.datetime.now()}})

@@ -1763,6 +1763,9 @@ class FreshDeskGetTicketUpdateWebhookAPIView(APIView):
 
 
 class ShowAllTicketsAPIView(APIView):
+
+    permission_classes = [CustomIsAuthenticatedPermission]
+
     def get(self, request):
         newTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [2]}})
         newTickets_list = []

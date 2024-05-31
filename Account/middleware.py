@@ -1,3 +1,4 @@
+from Account.jwt_utils import decode_jwt_token
 from Account.serializers import get_user_by_email
 import jwt
 from django.conf import settings
@@ -11,13 +12,15 @@ class CustomJWTAuthenticationMiddleware(MiddlewareMixin):
 
     def __call__(self, request):
         token = request.headers.get('Authorization')
-        email = request.headers.get('Authorization')
+        # email = request.headers.get('Authorization')
         if token:
-            print(token, "got")
+            # print(token, "got")
             try:
-                # payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-                # user = get_user_by_email(payload.get('email'))
-                user = get_user_by_email(email)
+                payload = decode_jwt_token(token)
+                if isinstance(payload, JsonResponse):
+                    return payload
+                user = get_user_by_email(payload.get('email'))
+                # user = get_user_by_email(email)
                 if user:
                     request.customMongoUser = user
                     # print("User -> ", user)
