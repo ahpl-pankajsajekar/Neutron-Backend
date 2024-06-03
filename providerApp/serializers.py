@@ -84,10 +84,15 @@ zone_choice =(
     ('WestZone', "WestZone"),  
 ) 
 class operationTicketSerializer(serializers.Serializer):
-    # zone = serializers.CharField(max_length=50)
     zone = serializers.ChoiceField(choices=zone_choice, required=True)
     pincode = serializers.CharField(max_length=10)
     remark = serializers.CharField(max_length=500)
+
+    def validate(self, attrs):
+        pincode = attrs['pincode']
+        if len(pincode) != 6:
+            raise serializers.ValidationError('Enter Valid Pincode')
+        return super().validate(attrs)
 
 class CreateChildTicketSerializer(serializers.Serializer):
     providerName = serializers.CharField(max_length=250)
