@@ -143,6 +143,7 @@ def CreateTicketFunction(fd_body_data):
                 "DignosticCenter_EmailId": ticket['custom_fields']['cf_diagnostic_center_email_id'],
                 "DignosticCenter_Address": ticket['custom_fields']['cf_diagnostic_centre_address'],
                 "DignosticCenter_ContactNumber": ticket['custom_fields']['cf_diagnostic_centre_contact_number'],
+                "DignosticCenter_OtherDetailsIfAny": ticket['custom_fields']['cf_other_detailsif_any'],
                 "cf_flscontact": ticket['custom_fields']['cf_flscontact'],
                 "Priority": ticket['custom_fields']['cf_priority'],
                 "start_time": ticket['custom_fields']['cf_start_time'],
@@ -1358,6 +1359,68 @@ class SelfEmpanelmentUpdateAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
 
+class ManageDCSearchAPIView(APIView):
+    permission_classes = [CustomIsAuthenticatedPermission]
+
+    def post(self, request, format=None):
+        try:
+            formData = json.loads(request.body) 
+            search_query_inputstring = formData.get('q', None)
+            search_query_list = [int(i) if i.isdigit() else i for i in re.split(r',\s*|\s*,\s*|\s+', search_query_inputstring) ]
+
+            query_conditions = []
+            for item in search_query_list:
+                if isinstance(item, int):
+                    # For integer values, construct query conditions for numeric fields
+                    query_conditions.append({"$or": [{"DCID": item}, {"Pincode": item} ]})
+                elif isinstance(item, str):
+                    # For string values, construct query conditions for string fields
+                    query_conditions.append({"$or": [
+                        {"DC Name": {"$regex": item, "$options": "i"}},
+                        {"City":{"$regex": "^" + re.escape(item), "$options": "i"}},  # (like operator '^') item match should starting not
+                    ]})
+
+            query = {"$and": query_conditions}
+            cursor = neutron_collection.find(query)
+            providerData = []
+            for document in cursor:
+                filtered_data = {
+                    "DCID": document["DCID"],
+                    "DC Name": document["DC Name"],
+                    "Date of Empanelment": document["Date of Empanelment"],
+                    "Address": document["Address"],
+                    "State": document["State"],
+                    "City": document["City"],
+                    "Pincode": document["Pincode"],
+                    "E_Mail": document["E_Mail"],
+                    "Contact Person Name 1": document["Contact Person Name 1"],
+                    "Mobile number 1": document["Mobile number 1"],
+                }
+                providerData.append(filtered_data)
+
+            # Prepare serializer data
+            serializer_data = {
+                "status": "Successful",
+                "data": providerData,
+                "message": "Result Found Successfully",
+                "serviceName": "DCSearchService_Service",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "totalResult": len(providerData),
+                "code": 200,
+            }
+            return Response(serializer_data, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            serializer_data = {
+                "status": "Error",
+                "error": str(e),
+                "message": "Something went to wrong",
+                "serviceName": "DCSearchService_Service",
+                "timeStamp": datetime.datetime.now().isoformat(),
+                "code": 500,
+            }
+            return Response(serializer_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # Dc Chanage Status Activate and deactivate, delist
 class DCStatusChangeAPIView(APIView):
@@ -1777,7 +1840,9 @@ class ShowAllTicketsAPIView(APIView):
     permission_classes = [CustomIsAuthenticatedPermission]
 
     def get(self, request):
-        newTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [2]}}).sort({'updated_at': -1})
+        _user = request.customMongoUser
+        zone = _user['zone']
+        newTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [2]}, "DignosticCenter_Zone": zone} ).sort({'updated_at': -1})
         newTickets_list = []
         for document in newTickets_cursor:
             filtered_data = {
@@ -1790,7 +1855,7 @@ class ShowAllTicketsAPIView(APIView):
                 filtered_data['ticketType'] = document["association_type"]
                 filtered_data['associatedTicketsList'] = document["associated_tickets_list"]
             newTickets_list.append(filtered_data)
-        openTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$nin": [2, 5]}}).sort({'updated_at': -1})
+        openTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$nin": [2, 5]}, "DignosticCenter_Zone": zone}).sort({'updated_at': -1})
         openTickets_list = []
         for document in openTickets_cursor:
             filtered_data = {
@@ -1806,7 +1871,7 @@ class ShowAllTicketsAPIView(APIView):
                 filtered_data['ticketType'] = document["association_type"]
                 filtered_data['associatedTicketsList'] = document["associated_tickets_list"]
             openTickets_list.append(filtered_data)
-        closedTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [5]}}).sort({'updated_at': -1})
+        closedTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$in": [5]}, "DignosticCenter_Zone": zone}).sort({'updated_at': -1})
         closeTickets_list = []
         for document in closedTickets_cursor:
             # Filter specific fields here
@@ -1863,7 +1928,8 @@ class TicketCreatedAPIView(APIView):
                     "description": formData['remark'],
                     "custom_fields":{
                         "cf_diagnostic_centre_pincode": str(formData['pincode']),
-                        "cf_select_your_zone" : formData['zone']
+                        "cf_select_your_zone" : formData['zone'],
+                        "cf_other_detailsif_any" : formData['remark'],
                     },
                     "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
                 }

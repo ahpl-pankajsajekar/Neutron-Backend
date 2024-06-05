@@ -10,7 +10,7 @@ secret_key = settings.SECRET_KEY
 
 def generate_jwt_token(email, name, role):
     # Set token expiration time (e.g., 1 hour)
-    expiration_time = datetime.utcnow() + timedelta(days=1)
+    expiration_time = datetime.utcnow() + timedelta(days=5)
     
     # Set token issue time
     issue_time = datetime.utcnow()

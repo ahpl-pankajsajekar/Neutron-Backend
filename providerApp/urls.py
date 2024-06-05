@@ -38,8 +38,9 @@ urlpatterns = [
     path('selfempanelments/', views.SelfEmpanelmentList.as_view()),
     path('selfempanelment/', views.SelfEmpanelmentAPIView.as_view()),
     
+    path('manage/DCsearch/', views.ManageDCSearchAPIView.as_view() ),
     # Change Dc Status
-    path('dcstatus/', views.DCStatusChangeAPIView.as_view()),
+    path('manage/DCstatus/', views.DCStatusChangeAPIView.as_view()),
 
     # Docusign Agreement it will not used
     path('docusignAgreement/', views.docusignAgreementFileAPIView.as_view()),

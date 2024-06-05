@@ -101,5 +101,5 @@ class CreateChildTicketSerializer(serializers.Serializer):
     state = serializers.CharField(max_length=50)
     city = serializers.CharField(max_length=50)
     contactPersonName = serializers.CharField(max_length=250)
-    contactNumber = serializers.CharField(max_length=20)
+    contactNumber = serializers.CharField(max_length=15)
     contactEmailID = serializers.EmailField()
