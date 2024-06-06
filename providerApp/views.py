@@ -145,6 +145,7 @@ def CreateTicketFunction(fd_body_data):
                 "DignosticCenter_ContactNumber": ticket['custom_fields']['cf_diagnostic_centre_contact_number'],
                 "DignosticCenter_OtherDetailsIfAny": ticket['custom_fields']['cf_other_detailsif_any'],
                 "cf_flscontact": ticket['custom_fields']['cf_flscontact'],
+                "cf_request_type": ticket['custom_fields']['cf_request_type'],
                 "Priority": ticket['custom_fields']['cf_priority'],
                 "start_time": ticket['custom_fields']['cf_start_time'],
                 "end_time": ticket['custom_fields']['cf_end_time'],
@@ -182,7 +183,7 @@ fd_create_ticket_body_data = {
     "priority": 1,
     # "subject": "Testing from postman for project neutron",
     # "requester_id": 89008796442,
-    "cc_emails": ["faraz.khan@alineahealthcare.in"]
+    "cc_emails": ["faraz.khan@alineahealthcare.in"],
 }
 # CreateTicketFunction(fd_create_ticket_body_data)
 
@@ -1424,35 +1425,81 @@ class ManageDCSearchAPIView(APIView):
 
 # Dc Chanage Status Activate and deactivate, delist
 class DCStatusChangeAPIView(APIView):
+    permission_classes = [CustomIsAuthenticatedPermission]
+
     def post(self, request):
         formData = request.data
+        print(formData)
         try:
+            _user = request.customMongoUser
+            email = _user['email']
+            print(email, _user['role'], type(_user['role']))
             DCStatusChangeSerializer(data=formData).is_valid()
-            dcID_query = int(request.query_params.get('dc', None))
+            # dcID_query = int(request.query_params.get('dc', None))
+            dcID_query = formData['DCID']
             if dcID_query is None:
                 return Response({"error": "DC Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
             # count no of documents return 404
             dc_count = neutron_collection.count_documents({'DCID': dcID_query })
-            print(dc_count)
+            print("dc_count Found:", dc_count)
             if dc_count == 0:
                 return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
-            document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': formData})
-             # Check if the update was successful
-            if document.modified_count > 0:
-                response_data = {
-                    "status": "Successful",
-                    "data": {
-                        "matched_count": document.matched_count,
-                        "modified_count": document.modified_count
+            
+            if _user['role'] == '4':
+                print("operation user creating ticket")
+                zone = _user.get('zone')
+                fd_create_ticket_body_data = {
+                    "status": 2, # pending - 3, open - 2
+                    "priority": 1, # low - 1
+                    "subject": "Change DC Status",
+                    "email": email,
+                    # "description": formData['remark'],
+                    "custom_fields":{
+                        "cf_diagnostic_centre_name": formData['DCName'],
+                        # "cf_diagnostic_centre_id": formData['DCID'],
+                        "cf_diagnostic_centre_pincode": str(formData['Pincode']),
+                        "cf_select_your_zone" : zone,
+                        "cf_request_type": formData['RequestedStatus']
                     },
-                    "message": "Document Update Successfully",
-                    "serviceName": "DCStatusChange_Service",
-                    "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_200_OK,
+                    "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
                 }
-                return Response(response_data)
-            else:
-                return Response({'error': 'Document not found'}, status=status.HTTP_404_NOT_FOUND)
+                print(fd_create_ticket_body_data)
+                res = CreateTicketFunction(fd_create_ticket_body_data)
+                if res['status'] == 'Success':
+                    serializer_data = {
+                        "status": "Success",
+                        "data": res['data']['Ticket_Id'],
+                        "message": "Ticket Created",
+                        "serviceName": "DCStatusChangeAPIView_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": 201,
+                    }
+                    return Response(serializer_data, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({"error": "Ticket not create"}, status=status.HTTP_204_NO_CONTENT)
+                
+            if _user['role'] == '1' and dcID_query:
+                # update status only
+                updateData = {
+                    "DCStatus": formData['RequestedStatus']
+                }
+                document = neutron_collection.update_one({'DCID': dcID_query}, {'$set': updateData})
+                # Check if the update was successful
+                if document.modified_count > 0:
+                    response_data = {
+                        "status": "Successful",
+                        "data": {
+                            "matched_count": document.matched_count,
+                            "modified_count": document.modified_count
+                        },
+                        "message": "Document Update Successfully",
+                        "serviceName": "DCStatusChange_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": status.HTTP_200_OK,
+                    }
+                    return Response(response_data)
+                # else:
+            return Response({'error': 'You Dont have Access!'}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
@@ -1488,11 +1535,14 @@ class docusignAgreementSentAPIView(APIView):
         try: 
             if date_on_stamp_paper:
                 date_on_stamp_paper = datetime.datetime.strptime(date_on_stamp_paper, '%Y-%m-%d').date() 
+                DC_data['stamp_day'] = date_on_stamp_paper.day
+                DC_data['stamp_month'] = date_on_stamp_paper.strftime("%B")  # month name
+                DC_data['stamp_year'] = date_on_stamp_paper.year
         except:
             date_on_stamp_paper = datetime.datetime.today()
-        DC_data['stamp_day'] = date_on_stamp_paper.day
-        DC_data['stamp_month'] = date_on_stamp_paper.strftime("%B")  # month name
-        DC_data['stamp_year'] = date_on_stamp_paper.year
+            DC_data['stamp_day'] = date_on_stamp_paper.day
+            DC_data['stamp_month'] = date_on_stamp_paper.strftime("%B")  # month name
+            DC_data['stamp_year'] = date_on_stamp_paper.year
 
         html_content = render_to_string('template.html', DC_data)
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp_file:
@@ -1504,8 +1554,8 @@ class docusignAgreementSentAPIView(APIView):
             'documentBase64' : BASE64_ENCODED_DOCUMENT_CONTENT[0], # tupple
             'documentName' : dc_name,
             'documentExtension' : 'html',
-            # 'dc_signer_email' : dc_email,
-            'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
+            'dc_signer_email' : dc_email,
+            # 'dc_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'dc_signer_name' : dc_name,
             'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
             'authority_signer_name' : 'Pankaj Sajekar',
@@ -1572,6 +1622,7 @@ class docusignAgreementFileAPIView(APIView):
             'documentExtension' : documentExtension,
             # 'dc_signer_email' : 'navnit.bhoir@alineahealthcare.in',
             # 'dc_signer_name' : 'Navnit bhoir',
+            # 'dc_signer_email' : "pankaj.sajekar@alineahealthcare.in",
             'dc_signer_email' : dc_email,
             'dc_signer_name' : dc_name,
             'authority_signer_email' : 'pankaj.sajekar@alineahealthcare.in',
@@ -1695,11 +1746,13 @@ class SaveIntoDBAndViewDocusignDocumentContentAPIView(APIView):
             ds_envelope_envelopeId = empanelment_docu['ds_envelope_envelopeId']
             DC_providerName = empanelment_docu['providerName']
             # document signed by docusign and stored in db then provide document in pdf
-            if 'ds_envelope_document_content' in empanelment_docu:
+            if 'ds_envelope_document_content' in empanelment_docu  and empanelment_docu['DC_Empanelment_Status'] == 'Registered':
+                print("already document")
                 ds_envelope_document_content = empanelment_docu['ds_envelope_document_content']
                 pdf_content = base64.b64encode(ds_envelope_document_content).decode('utf-8')
                 return Response({'pdf_content':pdf_content, "DC_name": DC_providerName }, status=status.HTTP_200_OK)
             else:
+                print("Going to save document")
                 # store document in db and provide pdf
                 token = docusign_JWT_Auth()
                 get_envelope_res_pdf_content = docusign_get_Envelope_Documents(token.get('access_token'), ds_envelope_envelopeId)
@@ -1777,6 +1830,7 @@ class candidateDCFormAPIView(APIView):
             "custom_fields":{
                 "cf_diagnostic_centre_pincode": formData['pincode'],
                 "cf_select_your_zone ": formData['zone'],
+                "cf_request_type": "Empanel"
             },
             # "cc_emails": ["faraz.khan@alineahealthcare.in"]
         }
@@ -1850,6 +1904,7 @@ class ShowAllTicketsAPIView(APIView):
                 "requestedDate": document["created_at"],
                 "pincode": document["DignosticCenter_Pincode"],
                 "zone": document["DignosticCenter_Zone"],
+                "requestType": document["cf_request_type"],
             }
             if "association_type" in  document:
                 filtered_data['ticketType'] = document["association_type"]
@@ -1864,6 +1919,7 @@ class ShowAllTicketsAPIView(APIView):
                 "pincode": document["DignosticCenter_Pincode"],
                 "Status_ID": document["Status_ID"],
                 "zone": document["DignosticCenter_Zone"],
+                "requestType": document["cf_request_type"],
             }
             if "DignosticCenter_ProviderName" in  document:
                 filtered_data['providerName'] = document["DignosticCenter_ProviderName"]
@@ -1930,6 +1986,7 @@ class TicketCreatedAPIView(APIView):
                         "cf_diagnostic_centre_pincode": str(formData['pincode']),
                         "cf_select_your_zone" : formData['zone'],
                         "cf_other_detailsif_any" : formData['remark'],
+                        "cf_request_type": "Empanel"
                     },
                     "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
                 }
@@ -2018,6 +2075,7 @@ class AddProspectiveProviderAPIView(APIView):
                         "cf_flscontact": formData['contactPersonName'],
                         "cf_diagnostic_centre_contact_number": formData['contactNumber'],
                         "cf_diagnostic_center_email_id": formData['contactEmailID'],
+                        "cf_request_type": "Empanel",
                     },
                     "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
                 }

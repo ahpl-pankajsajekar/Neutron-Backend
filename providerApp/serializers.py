@@ -35,7 +35,7 @@ class SelfEmpanelmentVerificationbyLegalSerializer(serializers.Serializer):
 
 # Change DC Status
 class DCStatusChangeSerializer(serializers.Serializer):
-    DCStatus = serializers.CharField(max_length=250)
+    RequestedStatus = serializers.CharField(max_length=250)
 
 
 # send for docusign not using 
