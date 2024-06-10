@@ -158,6 +158,8 @@ def CreateTicketFunction(fd_body_data):
             if "associated_tickets_list" in ticket:
                 createTicket_data.update({"associated_tickets_list": ticket['associated_tickets_list']})
                 createTicket_data.update({"association_type": ticket['association_type']})
+            if ticket['custom_fields']['cf_provider_id']:
+                createTicket_data.update({"DignosticCenter_Provider_ID": int(ticket['custom_fields']['cf_provider_id']) })
             ticket_docu = fdticket_collection.insert_one(createTicket_data)
             print(ticket_docu)
             response_data = {
@@ -1394,6 +1396,7 @@ class ManageDCSearchAPIView(APIView):
                     "City": document["City"],
                     "Pincode": document["Pincode"],
                     "E_Mail": document["E_Mail"],
+                    "DCStatus": document["DCStatus"],
                     "Contact Person Name 1": document["Contact Person Name 1"],
                     "Mobile number 1": document["Mobile number 1"],
                 }
@@ -1429,7 +1432,7 @@ class DCStatusChangeAPIView(APIView):
 
     def post(self, request):
         formData = request.data
-        print(formData)
+        print("formData ->", formData)
         try:
             _user = request.customMongoUser
             email = _user['email']
@@ -1446,6 +1449,22 @@ class DCStatusChangeAPIView(APIView):
                 return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
             
             if _user['role'] == '4':
+                # check ticket already exists
+                ticket_doc = fdticket_collection.count_documents({'DignosticCenter_Provider_ID': {'$exists': True, '$in': [formData['DCID']] },
+                        'Status_ID' : {'$exists': True, '$nin': [5]}, 
+                        # 'cf_request_type': {'$exists': True, '$in': [formData['RequestedStatus'] ] } 
+                        })
+                print("ticket_doc", ticket_doc)
+                if ticket_doc > 0:
+                    response_data = {
+                        "status": "Successful",
+                        "message": "Ticket Already Exists",
+                        "serviceName": "DCStatusChangeAPIView_Service",
+                        "timeStamp": datetime.datetime.now().isoformat(),
+                        "code": 200,
+                    }
+                    return Response(response_data, status=status.HTTP_200_OK,)
+
                 print("operation user creating ticket")
                 zone = _user.get('zone')
                 fd_create_ticket_body_data = {
@@ -1456,7 +1475,7 @@ class DCStatusChangeAPIView(APIView):
                     # "description": formData['remark'],
                     "custom_fields":{
                         "cf_diagnostic_centre_name": formData['DCName'],
-                        # "cf_diagnostic_centre_id": formData['DCID'],
+                        "cf_provider_id": str(formData['DCID']),
                         "cf_diagnostic_centre_pincode": str(formData['Pincode']),
                         "cf_select_your_zone" : zone,
                         "cf_request_type": formData['RequestedStatus']
@@ -1469,7 +1488,7 @@ class DCStatusChangeAPIView(APIView):
                     serializer_data = {
                         "status": "Success",
                         "data": res['data']['Ticket_Id'],
-                        "message": "Ticket Created",
+                        "message": "Ticket Created Successfully",
                         "serviceName": "DCStatusChangeAPIView_Service",
                         "timeStamp": datetime.datetime.now().isoformat(),
                         "code": 201,
@@ -1479,6 +1498,17 @@ class DCStatusChangeAPIView(APIView):
                     return Response({"error": "Ticket not create"}, status=status.HTTP_204_NO_CONTENT)
                 
             if _user['role'] == '1' and dcID_query:
+                try:
+                    print("try", str(formData['TicketID']))
+                    fd_ticket_body_data = {  "status": 5, }
+                    ticketStatusUpdate(str(formData['TicketID']), fd_ticket_body_data)
+                    ticket_update = { 'Status_ID': 5,
+                        'updated_at': str(fdTicketdb_updated_at) } # 5 - closed  
+                    ticket_doc = fdticket_collection.update_one({'Ticket_Id': int(formData['TicketID']) }, {'$set': ticket_update})
+                    print("ticket_doc ----", ticket_doc.modified_count)
+                except:
+                    pass
+                
                 # update status only
                 updateData = {
                     "DCStatus": formData['RequestedStatus']
@@ -1492,12 +1522,12 @@ class DCStatusChangeAPIView(APIView):
                             "matched_count": document.matched_count,
                             "modified_count": document.modified_count
                         },
-                        "message": "Document Update Successfully",
+                        "message": "DC Update Successfully",
                         "serviceName": "DCStatusChange_Service",
                         "timeStamp": datetime.datetime.now().isoformat(),
-                        "code": status.HTTP_200_OK,
+                        "code": 200,
                     }
-                    return Response(response_data)
+                    return Response(response_data, status=status.HTTP_200_OK,)
                 # else:
             return Response({'error': 'You Dont have Access!'}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
@@ -1909,6 +1939,9 @@ class ShowAllTicketsAPIView(APIView):
             if "association_type" in  document:
                 filtered_data['ticketType'] = document["association_type"]
                 filtered_data['associatedTicketsList'] = document["associated_tickets_list"]
+            if "DignosticCenter_Provider_ID" in document:
+                filtered_data["Provider_Id"] = document["DignosticCenter_Provider_ID"]
+
             newTickets_list.append(filtered_data)
         openTickets_cursor = fdticket_collection.find({"Status_ID": {"$exists": True, "$nin": [2, 5]}, "DignosticCenter_Zone": zone}).sort({'updated_at': -1})
         openTickets_list = []
@@ -1936,11 +1969,12 @@ class ShowAllTicketsAPIView(APIView):
                 "requestedDate": document["created_at"],
                 "pincode": document["DignosticCenter_Pincode"],
                 "zone": document["DignosticCenter_Zone"],
+                "requestType": document["cf_request_type"],
             }
             if "DignosticCenter_ProviderName" in  document:
                 filtered_data['providerName'] = document["DignosticCenter_ProviderName"]
-            if "closedDate" in  document:
-                filtered_data['closedDate'] = document["closedDate"]
+            if "updated_at" in  document:
+                filtered_data['closedDate'] = document["updated_at"]
             if "association_type" in  document:
                 filtered_data['ticketType'] = document["association_type"]
                 filtered_data['associatedTicketsList'] = document["associated_tickets_list"]
@@ -1949,7 +1983,7 @@ class ShowAllTicketsAPIView(APIView):
         ticketsData = {
             "newTickets" : newTickets_list,
             "openTickets" : openTickets_list,
-            "closeTickets" : closeTickets_list,
+            "closedTickets" : closeTickets_list,
         }
         serializer_data = {
             "status": "Success",
@@ -2052,6 +2086,7 @@ class AddProspectiveProviderAPIView(APIView):
             _user = request.customMongoUser
             formData = json.loads(formData.decode('utf-8'))  # convert data byte formate to dict
             parent_ticket_id = int(formData['parent_ticket_id'])
+            print(formData)
             serializer = CreateChildTicketSerializer(data=formData)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -2063,9 +2098,7 @@ class AddProspectiveProviderAPIView(APIView):
                     # "group_id": "Test DC Empanelment",  # provider integer field
                     "subject": "DC Empanelment request",
                     "parent_id": int(parent_ticket_id),
-                    # "email": email,
                     "email": formData['contactEmailID'],
-                    # "description": formData['remark'],
                     "custom_fields":{
                         "cf_diagnostic_centre_name": formData['providerName'],
                         "cf_diagnostic_centre_pincode": formData['pincode'],
@@ -2079,14 +2112,14 @@ class AddProspectiveProviderAPIView(APIView):
                     },
                     "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
                 }
-                # print(fd_create_ticket_body_data)
+                print(fd_create_ticket_body_data)
                 res = CreateTicketFunction(fd_create_ticket_body_data)
 
                 # add child in parent ticket
                 ticket_id = res['data']['Ticket_Id']
                 updateData = { 
-                    '$push': 
-                        { 'associated_tickets_list': { '$each': [ticket_id,] } } 
+                    '$push':  { 'associated_tickets_list': { '$each': [ticket_id,] } },
+                    # '$currentDate': { 'updated_at': fdTicketdb_updated_at }
                     }
                 ticket_result = fdticket_collection.update_one({'Ticket_Id': int(parent_ticket_id)}, updateData)
                 print(ticket_result)
