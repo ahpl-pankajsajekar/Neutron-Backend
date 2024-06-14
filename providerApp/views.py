@@ -440,11 +440,11 @@ class DCDetailAPIView(APIView):
             "status": "Success",
             "data": dcDetailData,
             "message": "DC Details Retrieved Successfully",
-            "serviceName": "DCDetails_Service",
+            "serviceName": "DCDetailAPIView_Service",
             "timeStamp": datetime.datetime.now().isoformat(),
-            "code": status.HTTP_200_OK,
+            "code": 200
         }
-        return Response(serializer_data)
+        return Response(serializer_data, status=status.HTTP_200_OK)
 
 # Update DC
 class DCUpdateAPIView(APIView):
@@ -1312,6 +1312,123 @@ class SelfEmpanelmentCreateAPIView(APIView):
                     "code": status.HTTP_201_CREATED,
                     }
             return Response(response_data)
+        
+        except DuplicateKeyError:
+            error_detail = "This Ticket is already Exists."
+            return Response({'error': error_detail}, status=400) 
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ManualEmpanelmentAddAPIView(APIView):
+    def post(self, request, id=None, *args, **kwargs):
+        ticketId_from_url = id
+        print("------", id, request.data )
+        if ticketId_from_url == None:
+            return Response({"error": "FreshDesk Ticket id Faild"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            form_data=request.data
+            ticketDetails = ViewTicketFunction(ticketId_from_url)
+            dc_zone_from_ticket = ticketDetails['custom_fields']['cf_select_your_zone']
+            # serializer = SelfEmpanelmentSerializer(data=form_data)
+            # if serializer.is_valid():
+            #     dc_data = serializer.data
+            # else:
+            #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            print(dc_zone_from_ticket, form_data)
+            FirmType = form_data.get('FirmType')
+            providerName = form_data.get('providerName')
+            providerType = form_data.get('providerType')
+            DC_Chain = form_data.get('DC_Chain')
+            Regi_number = form_data.get('Regi_number')
+            Inception = form_data.get('Inception')
+            Owner_name = form_data.get('Owner_name')
+            PanCard_number = form_data.get('PanCard_number')
+            nameOnPanCard = form_data.get('nameOnPanCard')
+            Adhar_number = form_data.get('Adhar_number')
+            Adhar_name = form_data.get('Adhar_name')
+            Owner_name_asper_document = form_data.get('Owner_name_asper_document')
+            Center_name = form_data.get('Center_name')
+            Accredation = form_data.get('Accredation')
+            
+            availableTests = form_data.get('availableTests')
+
+            dateOnStampPaper = form_data.get('dateOnStampPaper')
+            isConfirmCheckbox = form_data.get('isConfirmCheckbox')
+
+            data = {
+                'TicketID': str(ticketId_from_url),
+                'DCID': str(ticketId_from_url),
+                'providerName': form_data.get('providerName'),
+                'providerType': form_data.get('providerType'),
+                'DC_Chain': DC_Chain,
+                'Regi_number': Regi_number,
+                'Inception': Inception,
+                'Owner_name': Owner_name,
+                'PanCard_number': PanCard_number,
+                'nameOnPanCard': nameOnPanCard,
+                'Adhar_number': Adhar_number,
+                'Adhar_name': Adhar_name,
+                'Owner_name_asper_document': Owner_name_asper_document,
+                'Center_name': Center_name,
+                'Accredation': Accredation,
+                'address1': form_data.get('address1'),
+                'address2': form_data.get('address2'),
+                'state': form_data.get('state'),
+                'city': form_data.get('city'),
+                'pincode': form_data.get('pincode'),
+                'zone': dc_zone_from_ticket,  # set zone from ticket
+                'emailId': form_data.get('emailId'),
+                'emailId2': form_data.get('emailId2'),
+                'cantact_person1': form_data.get('contact_person1'),
+                'cantact_person2': form_data.get('cantact_person2'),
+                'contact_number1': form_data.get('contact_number1'),
+                'contact_number2': form_data.get('contact_number2'),
+
+                'accountNumber': form_data.get('accountNumber'),
+                'accountName': form_data.get('accountName'),
+                'bankName': form_data.get('bankName'),
+                'ifscCode': form_data.get('ifscCode'),
+                'branchName': form_data.get('branchName'),
+                'accountType': form_data.get('accountType'),
+
+                'availableTests': availableTests,
+                'FirmType': FirmType,
+
+                'dateOnStampPaper': dateOnStampPaper,
+                'isConfirmCheckbox': isConfirmCheckbox,
+            }
+            
+            data['DCVerificationStatus'] = 'pending'
+            data['DCVerificationStatusByLegal'] = 'pending'
+            data["created_at"] = datetime.datetime.now()
+            data["updated_at"] = datetime.datetime.now()
+            # Create data in MongoDB
+            result = selfEmpanelment_collection.insert_one(data)
+            # change the status in freshdesk
+            # 49 = submited to DC
+            fd_ticket_body_data = {
+                    "status": 49,
+            }
+            ticketStatusUpdate(ticketId_from_url, fd_ticket_body_data)
+            
+            try:
+                # add child in parent ticket
+                updateData = { '$set': { 'Status_ID': 49, 'updated_at': str(fdTicketdb_updated_at) } }
+                ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticketId_from_url)}, updateData)
+                print(ticket_result)
+            except:
+                print("Ticket status not updated: ", ticketId_from_url, "\t status: ", 49)
+
+            response_data = {
+                    "status": "Successful",
+                    "document_id": str(result.inserted_id),
+                    "message": "Manual Empanelment added!",
+                    "serviceName": "ManualEmpanelmentAddAPIView_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": 201,
+                    }
+            return Response(response_data, status=status.HTTP_201_CREATED)
         
         except DuplicateKeyError:
             error_detail = "This Ticket is already Exists."
