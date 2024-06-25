@@ -1517,6 +1517,8 @@ class ManageDCSearchAPIView(APIView):
                     "Contact Person Name 1": document["Contact Person Name 1"],
                     "Mobile number 1": document["Mobile number 1"],
                 }
+                if "insurerList" in document:
+                    filtered_data['insurerList'] = document['insurerList']
                 providerData.append(filtered_data)
 
             # Prepare serializer data
@@ -2253,6 +2255,36 @@ class AddProspectiveProviderAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+class ClosedProspectiveProviderAPIView(APIView):
+     permission_classes = [CustomIsAuthenticatedPermission]
+
+     def put(self, request, *args, **kwargs):
+        try:
+            formData = request.body
+            print(formData)
+            _user = request.customMongoUser
+            formData = json.loads(formData.decode('utf-8')) 
+            ticket_id = formData['TicketId']
+            # update in fd
+            fd_ticket_body_data = { "status": 5, }
+            ticketStatusUpdate(ticket_id, fd_ticket_body_data)
+            # update ticket in mongodb
+            updateData = { '$set': { 'Status_ID': 5, 'updated_at': str(fdTicketdb_updated_at) } }
+            ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticket_id)}, updateData)
+            print(ticket_result)
+
+            serializer_data = {
+                    "status": "Success",
+                    "message": "Child Ticket closed",
+                    "serviceName": "ClosedProspectiveProviderAPIView_Service",
+                    "timeStamp": datetime.datetime.now().isoformat(),
+                    "code": 200,
+                }
+            return Response(serializer_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 # list of child ticket for ProspectiveProvider
 class ProspectiveProviderGetChildTicketsAPIView(APIView):
     def get(self, request):
@@ -2260,7 +2292,8 @@ class ProspectiveProviderGetChildTicketsAPIView(APIView):
             parent_ticket_id = int(request.query_params.get('parent_ticket_id'))
             if not parent_ticket_id:
                 return Response({"error": "Parent ID not Provided"}, status=status.HTTP_400_BAD_REQUEST)
-            filter = {"associated_tickets_list": { '$exists': True, '$in': [parent_ticket_id]}, "association_type": { '$exists': True, '$in': [2]}, }
+            # associate ticket and status not equal to 5
+            filter = {"associated_tickets_list": { '$exists': True, '$in': [parent_ticket_id]}, "association_type": { '$exists': True, '$in': [2]}, 'Status_ID': {'$nin': [5]} }
             Tickets_cursor = fdticket_collection.find(filter)
             tickets_Data = []
             for ticket in Tickets_cursor:

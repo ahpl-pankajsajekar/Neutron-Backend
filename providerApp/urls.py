@@ -64,6 +64,7 @@ urlpatterns = [
     
     path('prospectiveprovider/tickets/', views.ProspectiveProviderGetChildTicketsAPIView.as_view()), 
     path('prospectiveprovider/ticket/', views.ProspectiveProviderTicketUpdateAPIView.as_view()),  # update ticket 
+    path('prospectiveprovider/ticket/closed/', views.ClosedProspectiveProviderAPIView.as_view() ),  # closed child ticket
     
     # tickets
     path('tickets/', views.ShowAllTicketsAPIView.as_view() ),
