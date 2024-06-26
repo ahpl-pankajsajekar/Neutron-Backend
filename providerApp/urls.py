@@ -59,8 +59,6 @@ urlpatterns = [
     path('docusignAgreement/envelope/webhook/', views.DocusignEnvelopeWebhookAPIView.as_view()),
     path('freshdesk/webhook/', views.FreshDeskGetTicketCreatedWebhookAPIView.as_view()),
     path('freshdesk/webhook/ticket/', views.FreshDeskGetTicketUpdateWebhookAPIView.as_view()),
-
-    path('candidateForm/ticket/', views.candidateDCFormAPIView.as_view() ),
     
     path('prospectiveprovider/tickets/', views.ProspectiveProviderGetChildTicketsAPIView.as_view()), 
     path('prospectiveprovider/ticket/', views.ProspectiveProviderTicketUpdateAPIView.as_view()),  # update ticket 

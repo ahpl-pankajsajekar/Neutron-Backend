@@ -17,10 +17,12 @@ from Account.permissions import CustomIsAuthenticatedPermission, IsLegalUserPerm
 from docusign.ds_jwt_auth import docusign_JWT_Auth
 from docusign.envelope import docusign_create_and_send_envelope, docusign_get_Envelope_Documents, docusign_get_envelope_status
 from providerApp.serializers import CreateChildTicketSerializer, DCStatusChangeSerializer, EmpanelmentSerializer, SelfEmpanelmentSerializer, SelfEmpanelmentVerificationSerializer, SelfEmpanelmentVerificationbyLegalSerializer, candidateDCFormSerializer, docusignAgreementFileSerializer, operationTicketSerializer
-from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection, fdticketlogs_collection
+from .models import neutron_collection, selfEmpanelment_collection, testName_collection, fdticket_collection, fdticketlogs_collection, fdchildticket_collection
 
 from rest_framework.permissions import IsAuthenticated
 from pymongo.errors import DuplicateKeyError
+
+from freshdesk.fdTicket import ViewTicketFunction, CreateTicketFunction, ticketStatusUpdate 
 
 from providerApp.tests import CreateDictsinList
 # update in mongodb
@@ -45,149 +47,6 @@ def MongodbCRUD():
         print("Exception : ", Exception)
 # MongodbCRUD()
 
-
-# basic authorization 
-freshdesk_username = 'p8StXeOUFSoTHBrUyco'
-freshdesk_password = 'X'
-freshdesk_url = 'https://alineahealthcare.freshdesk.com/'
-
-# Concatenate username and password with a colon
-auth_string = f'{freshdesk_username}:{freshdesk_password}'
-# Encode the auth string to base64
-auth_encoded = base64.b64encode(auth_string.encode()).decode()
-
-# Update Freshdesk Ticket update
-def ticketStatusUpdate(ticket_id, fd_ticket_body_data):
-    try:
-        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
-        # update status   
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Basic {auth_encoded}'
-        }
-        response = requests.put(url, json=fd_ticket_body_data, headers=headers)
-        res = response.json()
-        if response.status_code == 200:
-            response_data = {
-                "status":  "Successful",
-                "message":  "Ticket updated successfully!",
-            }
-        else:
-            response_data = {
-                "status":  res['code'],
-                "message":  res['message'],
-            }
-    except requests.exceptions.RequestException as e:
-        response_data = {
-            "status": "Failed",
-            "message": e,
-        }
-    print(response_data)
-    return(response_data)
-# ticketStatusUpdate(584387, 49)
-
-# view Ticket 
-def ViewTicketFunction(ticket_id):
-    try:
-        url = f"{freshdesk_url}api/v2/tickets/{ticket_id}"
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Basic {auth_encoded}'
-        }
-        response = requests.get(url, headers=headers)
-        res = response.json()
-        if response.status_code == 200:
-           return response.json()
-        else:
-            response_data = {
-                "status":  res['code'],
-                "message":  res['message'],
-            }
-    except requests.exceptions.RequestException as e:
-        response_data = {
-            "status": "Failed",
-            "message": e,
-        }
-    return response_data
-# ViewTicketFunction(584387)
-
-def CreateTicketFunction(fd_body_data):
-    try:
-        url = f"{freshdesk_url}api/v2/tickets"
-        # update status   
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Basic {auth_encoded}'
-        }
-        # fd_body_data = fd_body_data
-        response = requests.post(url, json=fd_body_data, headers=headers)
-        res = response.json()
-        if response.status_code == 201:
-            ticket = res
-            createTicket_data = {
-                "Ticket_Id": ticket['id'],
-                "Subject": ticket['subject'],
-                "Status_ID": ticket['status'],
-                "Description": ticket['description_text'],
-                "Description_Html": ticket['description'],
-                "Priority_ID": ticket['priority'],
-                "Group_ID": ticket['group_id'],
-                "Source_ID": ticket['source'],
-                "Requester_Address": ticket['custom_fields']['cf_customer_address'],
-                "DignosticCenter_ProviderName": ticket['custom_fields']['cf_diagnostic_centre_name'],
-                "DignosticCenter_Pincode": ticket['custom_fields']['cf_diagnostic_centre_pincode'],
-                "DignosticCenter_Zone": ticket['custom_fields']['cf_select_your_zone'],
-                "DignosticCenter_State": ticket['custom_fields']['cf_diagnostic_centre_state'],
-                "DignosticCenter_City": ticket['custom_fields']['cf_diagnostic_centre_city'],
-                "DignosticCenter_presentremark": ticket['custom_fields']['cf_presentremark'],
-                "DignosticCenter_EmailId": ticket['custom_fields']['cf_diagnostic_center_email_id'],
-                "DignosticCenter_Address": ticket['custom_fields']['cf_diagnostic_centre_address'],
-                "DignosticCenter_ContactNumber": ticket['custom_fields']['cf_diagnostic_centre_contact_number'],
-                "DignosticCenter_OtherDetailsIfAny": ticket['custom_fields']['cf_other_detailsif_any'],
-                "cf_flscontact": ticket['custom_fields']['cf_flscontact'],
-                "cf_request_type": ticket['custom_fields']['cf_request_type'],
-                "Priority": ticket['custom_fields']['cf_priority'],
-                "start_time": ticket['custom_fields']['cf_start_time'],
-                "end_time": ticket['custom_fields']['cf_end_time'],
-                "tags": ticket['tags'],
-                "to_emails": ticket['to_emails'],
-                "due_by": ticket['due_by'],
-                "created_at": ticket['created_at'],
-                "updated_at": ticket['updated_at'],
-            }
-            if "associated_tickets_list" in ticket:
-                createTicket_data.update({"associated_tickets_list": ticket['associated_tickets_list']})
-                createTicket_data.update({"association_type": ticket['association_type']})
-            if ticket['custom_fields']['cf_provider_id']:
-                createTicket_data.update({"DignosticCenter_Provider_ID": int(ticket['custom_fields']['cf_provider_id']) })
-            ticket_docu = fdticket_collection.insert_one(createTicket_data)
-            print(ticket_docu)
-            response_data = {
-                "status":  "Success",
-                "data":  createTicket_data,
-                "message":  "Ticket Created successfully!",
-            }
-        else:
-            response_data = {
-                "status":  res['errors'],
-                "message":  res['description'],
-            }
-    except requests.exceptions.RequestException as e:
-        response_data = {
-            "status": "Failed",
-            "message": e,
-        }
-    print(response_data)
-    return(response_data)
-
-fd_create_ticket_body_data = {
-    "status": 3,
-    "priority": 1,
-    # "subject": "Testing from postman for project neutron",
-    # "requester_id": 89008796442,
-    "cc_emails": ["faraz.khan@alineahealthcare.in"],
-}
-# CreateTicketFunction(fd_create_ticket_body_data)
 
 # Search in this fields [Pincode, Test Available] that documents show for API
 class ADD_DC_APIIntegrations(APIView):
@@ -216,7 +75,7 @@ class ADD_DC_APIIntegrations(APIView):
         query = {"$and": query_conditions}
 
         # Perform search using the constructed query
-        cursor = neutron_collection.find(query).sort("Priority", pymongo.DESCENDING)
+        cursor = neutron_collection.find(query).sort("Priority", -1)
 
         # Convert MongoDB cursor to list of dictionaries
         # providerData = [json.loads(json_util.dumps(doc)) for doc in cursor]
@@ -261,11 +120,8 @@ class SearchDCAPIView(APIView):
     def post(self, request, format=None):
         try:
             data = json.loads(request.body) 
-            # Access the value of the 't' key
             search_query_inputstring = data.get('q', None)
             search_tests_inputstring = data.get('t', [])
-            # search_query_inputstring = request.query_params.get('q', None)
-            # search_tests_inputstring = request.query_params.get('t', None)
             
             # Clean and split search queries
             # search_query_list = [int(i) if i.isdigit() else i for i in search_query_inputstring.replace(', ', ',').split(',')]
@@ -284,10 +140,7 @@ class SearchDCAPIView(APIView):
             if search_query_inputstring is None or (search_query_inputstring == '' and search_tests_inputstring == []):
                 return Response({"error": "Search term not provided"}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Initialize the query dictionary
             query_conditions = []
-
-            # Iterate over the search data list
             for item in search_query_list:
                 if isinstance(item, int):
                     # For integer values, construct query conditions for numeric fields
@@ -297,9 +150,7 @@ class SearchDCAPIView(APIView):
                     query_conditions.append({"$or": [
                         {"DC Name": {"$regex": item, "$options": "i"}},
                         {"City":{"$regex": "^" + re.escape(item), "$options": "i"}},  # (like operator '^') item match should starting not
-                        {"State": {"$regex": "^" + re.escape(item), "$options": "i"}},
                         {"DC Registration No": {"$regex": item, "$options": "i"}},
-                        {"Accreditation Type": {"$regex": item, "$options": "i"}},
                     ]})
 
             if search_tests_inputstring:
@@ -313,18 +164,14 @@ class SearchDCAPIView(APIView):
                     }}   # test_details_condition = {'AvailableTestCode': {'$all': [{'$elemMatch': {'item_value': '100001'}}, {'$elemMatch': {'item_value': '100002'}}]}} and it return value. input comes in " search_tests_inputstring = ["100001", "100002"] "
                 query_conditions.append(test_details_condition)
 
-            # Combine all conditions using the $and operator
             query = {"$and": query_conditions}
-
-            # Perform search using the constructed query
-            cursor = neutron_collection.find(query).sort("Priority", pymongo.DESCENDING)
+            cursor = neutron_collection.find(query).sort("Priority", -1)
             
             # Convert MongoDB cursor to list of dictionaries
             # providerData = [json.loads(json_util.dumps(doc)) for doc in cursor]
             
             providerData = []
             for document in cursor:
-                # Filter specific fields here
                 filtered_data = {
                     "DCID": document["DCID"],
                     "DC Name": document["DC Name"],
@@ -343,36 +190,21 @@ class SearchDCAPIView(APIView):
                 }
                 providerData.append(filtered_data)
 
-            # Get the total count of results
             total_results = len(providerData)
 
             # Calculate the total number of pages
             # total_pages = (total_results + page_size - 1) // page_size
-
             # Paginate the results
             # providerData = providerData[(page_number - 1) * page_size: page_number * page_size]
-            if len(providerData) == 0:
-                serializer_data = {
-                    "status": "Successful",
-                    "message": "The requested resource was not found",
-                    "serviceName": "DCSearchService_Service",
-                    "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_404_NOT_FOUND,
-                }
-                return Response(serializer_data)
 
-            # Prepare serializer data
             serializer_data = {
                 "status": "Successful",
                 "data": providerData,
                 "message": "Result Found Successfully",
                 "serviceName": "DCSearchService_Service",
                 "timeStamp": datetime.datetime.now().isoformat(),
-                # "page": page_number,
-                # "totalPages": total_pages,
                 "totalResult": total_results,
-                # "noOfResult": len(providerData),
-                "code": status.HTTP_200_OK,
+                "code": 200,
             }
 
             # Add previous and next URLs
@@ -381,8 +213,7 @@ class SearchDCAPIView(APIView):
             # if page_number < int(total_pages):
             #     serializer_data["next"] = request.build_absolute_uri(request.path_info + f"?q={search_query_inputstring}&t={search_tests_inputstring}&page={page_number + 1}&page_size={page_size}")
 
-            # Return the search results
-            return Response(serializer_data)
+            return Response(serializer_data, status=status.HTTP_200_OK)
         
         except Exception as e:
             serializer_data = {
@@ -429,7 +260,6 @@ class DCDetailAPIView(APIView):
         if dcID_query is None:
             return Response({"error": "DC Details not provided"}, status=status.HTTP_400_BAD_REQUEST)
          
-        # count no of documents return 404
         dc_count = neutron_collection.count_documents({'DCID': dcID_query })
         if dc_count == 0:
             return Response({"error": "No DC Details found for the provided ID"}, status=status.HTTP_404_NOT_FOUND)
@@ -1955,46 +1785,6 @@ class DocusignEnvelopeWebhookAPIView(APIView):
         }
         return Response(serializer_data, status=status.HTTP_200_OK)
 
-class candidateDCFormAPIView(APIView):
-
-    IsAuthenticated = [CustomIsAuthenticatedPermission]
-
-    def post(self, request, *args, **kwargs):
-        formData = request.body
-        _user = request.customMongoUser
-        if _user:
-            email = _user['email']
-        serializer = candidateDCFormSerializer(data=formData)
-        if not serializer.is_valid:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        fd_create_ticket_body_data = {
-            "status": 3,
-            "priority": 1,
-            "subject": "Developement DC Empanelment request",
-            # "email" : "kushal.bedekar@alineahealthcare.in",
-            "email": email,
-            # "requester_id": 89008796442,
-            "description": formData['remark'],
-            "custom_fields":{
-                "cf_diagnostic_centre_pincode": formData['pincode'],
-                "cf_select_your_zone ": formData['zone'],
-                "cf_request_type": "Empanel"
-            },
-            # "cc_emails": ["faraz.khan@alineahealthcare.in"]
-        }
-        # CreateTicketFunction(fd_create_ticket_body_data)
-
-        serializer_data = {
-            "status": "Success",
-            "data": "",
-            "message": "Candidate Form Submited",
-            "serviceName": "candidateDCFormAPIView_Service",
-            "timeStamp": datetime.datetime.now().isoformat(),
-            "code": status.HTTP_201_CREATED,
-        }
-        return Response(serializer_data, status=status.HTTP_201_CREATED)
-
 
 class FreshDeskGetTicketCreatedWebhookAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -2211,37 +2001,39 @@ class AddProspectiveProviderAPIView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             if _user and parent_ticket_id!=None:
                 email = _user['email']
-                fd_create_ticket_body_data = {
-                    "status": 2, # pending - 3, open - 2
-                    "priority": 1, # low - 1
-                    # "group_id": "Test DC Empanelment",  # provider integer field
-                    "subject": "DC Empanelment request",
-                    "parent_id": int(parent_ticket_id),
-                    "email": formData['contactEmailID'],
-                    "custom_fields":{
-                        "cf_diagnostic_centre_name": formData['providerName'],
-                        "cf_diagnostic_centre_pincode": formData['pincode'],
-                        "cf_select_your_zone" : formData['zone'],
-                        "cf_diagnostic_centre_state": formData['state'],
-                        "cf_diagnostic_centre_city": formData['city'],
-                        "cf_flscontact": formData['contactPersonName'],
-                        "cf_diagnostic_centre_contact_number": formData['contactNumber'],
-                        "cf_diagnostic_center_email_id": formData['contactEmailID'],
-                        "cf_request_type": "Empanel",
-                    },
-                    "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
-                }
-                print(fd_create_ticket_body_data)
-                res = CreateTicketFunction(fd_create_ticket_body_data)
 
-                # add child in parent ticket
-                ticket_id = res['data']['Ticket_Id']
-                updateData = { 
-                    '$push':  { 'associated_tickets_list': { '$each': [ticket_id,] } },
-                    # '$currentDate': { 'updated_at': fdTicketdb_updated_at }
-                    }
-                ticket_result = fdticket_collection.update_one({'Ticket_Id': int(parent_ticket_id)}, updateData)
-                print(ticket_result)
+                childticket_docu = fdchildticket_collection.insert_one(formData)
+                print("-----childticket_docu", childticket_docu)
+                # fd_create_ticket_body_data = {
+                #     "status": 2, # pending - 3, open - 2
+                #     "priority": 1, # low - 1
+                #     # "group_id": "Test DC Empanelment",  # provider integer field
+                #     "subject": "DC Empanelment request",
+                #     "parent_id": int(parent_ticket_id),
+                #     "email": formData['contactEmailID'],
+                #     "custom_fields":{
+                #         "cf_diagnostic_centre_name": formData['providerName'],
+                #         "cf_diagnostic_centre_pincode": formData['pincode'],
+                #         "cf_select_your_zone" : formData['zone'],
+                #         "cf_diagnostic_centre_state": formData['state'],
+                #         "cf_diagnostic_centre_city": formData['city'],
+                #         "cf_flscontact": formData['contactPersonName'],
+                #         "cf_diagnostic_centre_contact_number": formData['contactNumber'],
+                #         "cf_diagnostic_center_email_id": formData['contactEmailID'],
+                #         "cf_request_type": "Empanel",
+                #     },
+                #     "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
+                # }
+                # print(fd_create_ticket_body_data)
+                # res = CreateTicketFunction(fd_create_ticket_body_data)
+                # # add child in parent ticket
+                # ticket_id = res['data']['Ticket_Id']
+                # updateData = { 
+                #     '$push':  { 'associated_tickets_list': { '$each': [ticket_id,] } },
+                #     # '$currentDate': { 'updated_at': fdTicketdb_updated_at }
+                #     }
+                # ticket_result = fdticket_collection.update_one({'Ticket_Id': int(parent_ticket_id)}, updateData)
+                # print(ticket_result)
 
                 serializer_data = {
                     "status": "Success",
@@ -2249,7 +2041,7 @@ class AddProspectiveProviderAPIView(APIView):
                     "message": "Child Ticket Created for AddProspectiveProvider",
                     "serviceName": "AddProspectiveProviderAPIView_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
-                    "code": status.HTTP_201_CREATED,
+                    "code": 201,
                 }
                 return Response(serializer_data, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -2257,26 +2049,24 @@ class AddProspectiveProviderAPIView(APIView):
 
 
 class ClosedProspectiveProviderAPIView(APIView):
-     permission_classes = [CustomIsAuthenticatedPermission]
+    permission_classes = [CustomIsAuthenticatedPermission]
 
-     def put(self, request, *args, **kwargs):
+    def put(self, request, *args, **kwargs):
         try:
             formData = request.body
             print(formData)
             _user = request.customMongoUser
             formData = json.loads(formData.decode('utf-8')) 
             ticket_id = formData['TicketId']
-            # update in fd
-            fd_ticket_body_data = { "status": 5, }
-            ticketStatusUpdate(ticket_id, fd_ticket_body_data)
             # update ticket in mongodb
-            updateData = { '$set': { 'Status_ID': 5, 'updated_at': str(fdTicketdb_updated_at) } }
-            ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticket_id)}, updateData)
+            # updateData = { '$set': { 'Status_ID': 5, 'updated_at': str(fdTicketdb_updated_at) } }
+            # ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticket_id)}, updateData)
+            ticket_result = fdchildticket_collection.delete_one({'_id': ObjectId(ticket_id)})
             print(ticket_result)
 
             serializer_data = {
                     "status": "Success",
-                    "message": "Child Ticket closed",
+                    "message": "Child Ticket deleted",
                     "serviceName": "ClosedProspectiveProviderAPIView_Service",
                     "timeStamp": datetime.datetime.now().isoformat(),
                     "code": 200,
@@ -2292,19 +2082,22 @@ class ProspectiveProviderGetChildTicketsAPIView(APIView):
             parent_ticket_id = int(request.query_params.get('parent_ticket_id'))
             if not parent_ticket_id:
                 return Response({"error": "Parent ID not Provided"}, status=status.HTTP_400_BAD_REQUEST)
+            query = {"parent_ticket_id": parent_ticket_id}
+            Tickets_cursor  = fdchildticket_collection.find(query)
+            print(Tickets_cursor)
             # associate ticket and status not equal to 5
-            filter = {"associated_tickets_list": { '$exists': True, '$in': [parent_ticket_id]}, "association_type": { '$exists': True, '$in': [2]}, 'Status_ID': {'$nin': [5]} }
-            Tickets_cursor = fdticket_collection.find(filter)
+            # filter = {"associated_tickets_list": { '$exists': True, '$in': [parent_ticket_id]}, "association_type": { '$exists': True, '$in': [2]}, 'Status_ID': {'$nin': [5]} }
+            # Tickets_cursor = fdticket_collection.find(filter)
             tickets_Data = []
             for ticket in Tickets_cursor:
+                print(ticket)
                 filter_data = {
-                    "Ticket_Id": ticket["Ticket_Id"],
-                    "Subject": ticket["Subject"],
-                    "DignosticCenter_State": ticket["DignosticCenter_State"],
-                    "DignosticCenter_Zone": ticket["DignosticCenter_Zone"],
+                    "id": str(ticket['_id']),
+                    "DignosticCenter_State": ticket["state"],
+                    "DignosticCenter_Zone": ticket["zone"],
                 }
-                if 'DignosticCenter_ProviderName' in ticket:
-                    filter_data["DignosticCenter_ProviderName"] = ticket["DignosticCenter_ProviderName"]
+                if 'providerName' in ticket:
+                    filter_data["DignosticCenter_ProviderName"] = ticket["providerName"]
                 tickets_Data.append(filter_data)
             serializer_data = {
                     "status": "Success",
@@ -2325,21 +2118,53 @@ class ProspectiveProviderTicketUpdateAPIView(APIView):
     def put(self, request):
         try:
             fromData = request.body
-            print(fromData)
             fromData = json.loads(fromData.decode('utf-8'))
             ticket_id = fromData['ticket_id']
             if ticket_id:
-                fd_ticket_body_data = {
-                        "status": 48,
+                # fd_ticket_body_data = {
+                #         "status": 48,
+                #     }
+                # ticketStatusUpdate(ticket_id, fd_ticket_body_data)
+                # updateData = {
+                #      '$set': {
+                #         'Status_ID': 48,
+                #         'updated_at': str(fdTicketdb_updated_at)
+                #         }
+                #     }
+                # ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticket_id)}, updateData)
+                # print(ticket_result)
+                childticket_docu = fdchildticket_collection.find_one({'_id': ObjectId(ticket_id)})
+                print(childticket_docu)
+                fd_create_ticket_body_data = {
+                    "status": 48, # pending - 3, open - 2
+                    "priority": 1, # low - 1
+                    # "group_id": "Test DC Empanelment",  # provider integer field
+                    "subject": "DC Empanelment request",
+                    "parent_id": childticket_docu['parent_ticket_id'],
+                    "email": childticket_docu['contactEmailID'],
+                    "custom_fields":{
+                        "cf_diagnostic_centre_name": childticket_docu['providerName'],
+                        "cf_diagnostic_centre_pincode": childticket_docu['pincode'],
+                        "cf_select_your_zone" : childticket_docu['zone'],
+                        "cf_diagnostic_centre_state": childticket_docu['state'],
+                        "cf_diagnostic_centre_city": childticket_docu['city'],
+                        "cf_flscontact": childticket_docu['contactPersonName'],
+                        "cf_diagnostic_centre_contact_number": childticket_docu['contactNumber'],
+                        "cf_diagnostic_center_email_id": childticket_docu['contactEmailID'],
+                        "cf_request_type": "Empanel",
+                    },
+                    "cc_emails": ["pankaj.sajekar@alineahealthcare.in"]
+                }
+                print(fd_create_ticket_body_data)
+                res = CreateTicketFunction(fd_create_ticket_body_data)
+                # add child in parent ticket
+                ticket_id = res['data']['Ticket_Id']
+                updateData = { 
+                    '$push':  { 'associated_tickets_list': { '$each': [ticket_id,] } },
+                    # '$currentDate': { 'updated_at': fdTicketdb_updated_at }
                     }
-                ticketStatusUpdate(ticket_id, fd_ticket_body_data)
-                updateData = {
-                     '$set': {
-                        'Status_ID': 48,
-                        'updated_at': str(fdTicketdb_updated_at)
-                        }
-                    }
-                ticket_result = fdticket_collection.update_one({'Ticket_Id': int(ticket_id)}, updateData)
+                print(updateData)
+                ticket_result = fdticket_collection.update_one({'_id': res['data']['_id']}, updateData)
                 print(ticket_result)
             else:
                 return Response("Ticket ID Not found.", status=status.HTTP_400_BAD_REQUEST)
